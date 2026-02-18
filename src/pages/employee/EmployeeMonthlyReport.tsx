@@ -31,7 +31,7 @@ const EmployeeMonthlyReport = () => {
     queryKey: ["my-monthly-report", user?.id, startDate, endDate],
     queryFn: async () => {
       const { data } = await supabase
-        .from("attendance")
+        .from("attendance_daily")
         .select("*")
         .eq("user_id", user!.id)
         .gte("date", startDate)
@@ -42,14 +42,19 @@ const EmployeeMonthlyReport = () => {
     enabled: !!user,
   });
 
-  const presentDays = attendanceData.filter((a: any) => a.status === "present").length;
-  const halfDays = attendanceData.filter((a: any) => a.status === "half_day").length;
-  const absentDays = attendanceData.filter((a: any) => a.status === "absent").length;
-  const leaveDays = attendanceData.filter((a: any) => a.status === "on_leave").length;
-  const totalWorked = attendanceData.reduce((sum: number, a: any) => sum + (Number(a.worked_hours) || 0), 0);
-  const effectiveDays = presentDays + halfDays * 0.5;
-  const workingDays = totalDays - leaveDays;
-  const avgHours = presentDays + halfDays > 0 ? (totalWorked / (presentDays + halfDays)).toFixed(1) : "0";
+  const presentDays = attendanceData.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
+  const lateDays = attendanceData.filter((a: any) => a.status === "LATE").length;
+  const leaveDays = attendanceData.filter((a: any) => a.mode === "LEAVE").length;
+  const absentDays = attendanceData.filter((a: any) => a.status === "ABSENT" && a.mode !== "LEAVE").length;
+
+  const totalWorked = attendanceData.reduce((sum: number, a: any) => {
+    if (a.login_time && a.logout_time) {
+      const start = new Date(a.login_time).getTime();
+      const end = new Date(a.logout_time).getTime();
+      return sum + (end - start) / (1000 * 60 * 60);
+    }
+    return sum;
+  }, 0);
 
   return (
     <div>
@@ -73,7 +78,7 @@ const EmployeeMonthlyReport = () => {
         {[
           { label: "Total Days", value: totalDays },
           { label: "Present", value: presentDays },
-          { label: "Half Days", value: halfDays },
+          { label: "Late", value: lateDays },
           { label: "Absent", value: absentDays },
           { label: "On Leave", value: leaveDays },
           { label: "Total Hours", value: totalWorked.toFixed(1) },
@@ -102,26 +107,32 @@ const EmployeeMonthlyReport = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Punch In</TableHead>
-                  <TableHead>Punch Out</TableHead>
+                  <TableHead>Login Time</TableHead>
+                  <TableHead>Logout Time</TableHead>
                   <TableHead>Hours</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Mode</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {attendanceData.map((a: any) => {
-                  const cls = a.status === "present" ? "badge-present" : a.status === "half_day" ? "badge-half-day" : a.status === "on_leave" ? "badge-on-leave" : "badge-absent";
+                  const cls = a.status === "PRESENT" ? "badge-present" : a.status === "LATE" ? "badge-half-day" : a.mode === "LEAVE" ? "badge-on-leave" : "badge-absent";
+                  let hours = 0;
+                  if (a.login_time && a.logout_time) {
+                    hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
+                  }
                   return (
                     <TableRow key={a.id}>
                       <TableCell className="text-sm">{format(new Date(a.date), "dd MMM")}</TableCell>
-                      <TableCell className="text-sm">{a.punch_in ? format(new Date(a.punch_in), "hh:mm a") : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.punch_out ? format(new Date(a.punch_out), "hh:mm a") : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.worked_hours || 0}</TableCell>
+                      <TableCell className="text-sm">{a.login_time ? format(new Date(a.login_time), "hh:mm a") : "—"}</TableCell>
+                      <TableCell className="text-sm">{a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : "—"}</TableCell>
+                      <TableCell className="text-sm">{hours > 0 ? hours.toFixed(1) : 0}</TableCell>
                       <TableCell>
                         <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-                          {a.status?.replace("_", " ")}
+                          {a.status}
                         </span>
                       </TableCell>
+                      <TableCell className="text-sm">{a.mode || "-"}</TableCell>
                     </TableRow>
                   );
                 })}

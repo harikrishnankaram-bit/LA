@@ -11,16 +11,20 @@ const AdminDashboard = () => {
       const today = new Date().toISOString().split("T")[0];
       const [employees, todayAtt, pendingLeaves] = await Promise.all([
         supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "employee"),
-        supabase.from("attendance").select("*").eq("date", today),
-        supabase.from("leaves").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("attendance_daily").select("*").eq("date", today),
+        supabase.from("leaves").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
       ]);
 
       const attData = todayAtt.data || [];
       return {
         totalEmployees: employees.count || 0,
-        presentToday: attData.filter((a: any) => a.status === "present").length,
-        halfDayToday: attData.filter((a: any) => a.status === "half_day").length,
-        absentToday: (employees.count || 0) - attData.filter((a: any) => a.status !== "absent").length,
+        presentToday: attData.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length,
+        lateToday: attData.filter((a: any) => a.status === "LATE").length,
+        absentToday: (employees.count || 0) - attData.length + attData.filter((a: any) => a.status === "ABSENT").length, // Total employees - records + specific absent records? Actually, absent might be explicit or implicit (no record). 
+        // Let's stick to explicit ABSENT status or missing record implication if needed. 
+        // For now, let's assume explicit ABSENT status plus implicit. 
+        // Simpler: Total Employees - Present - Late = Absent (roughly, if we assume everyone should have a record or be absent).
+        // Let's rely on status 'ABSENT' for now.
         pendingLeaves: pendingLeaves.count || 0,
       };
     },
@@ -29,7 +33,7 @@ const AdminDashboard = () => {
   const cards = [
     { label: "Total Employees", value: stats?.totalEmployees || 0, icon: Users, color: "text-primary" },
     { label: "Present Today", value: stats?.presentToday || 0, icon: Clock, color: "text-primary" },
-    { label: "Half Day", value: stats?.halfDayToday || 0, icon: CalendarDays, color: "text-warning" },
+    { label: "Late Arrivals", value: stats?.lateToday || 0, icon: CalendarDays, color: "text-warning" },
     { label: "Pending Leaves", value: stats?.pendingLeaves || 0, icon: AlertTriangle, color: "text-destructive" },
   ];
 

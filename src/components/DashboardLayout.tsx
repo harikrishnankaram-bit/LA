@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 
 const DashboardLayout = () => {
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex h-screen w-full overflow-hidden">
       <AppSidebar />
       <main className="flex-1 overflow-auto bg-background">
         <div className="p-6 lg:p-8">

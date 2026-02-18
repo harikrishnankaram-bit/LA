@@ -24,7 +24,7 @@ const AttendanceOverview = () => {
   const { data: attendance = [] } = useQuery({
     queryKey: ["attendance-overview", date, employeeFilter],
     queryFn: async () => {
-      let query = supabase.from("attendance").select("*, profiles!inner(full_name, department)").eq("date", date);
+      let query = supabase.from("attendance_daily").select("*, profiles!inner(full_name, department)").eq("date", date);
       if (employeeFilter !== "all") query = query.eq("user_id", employeeFilter);
       const { data } = await query.order("created_at");
       return data || [];
@@ -45,7 +45,6 @@ const AttendanceOverview = () => {
           <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Employees</SelectItem>
               {employees.map((e: any) => (
                 <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>
               ))}
@@ -70,27 +69,33 @@ const AttendanceOverview = () => {
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead>Department</TableHead>
-                  <TableHead>Punch In</TableHead>
-                  <TableHead>Punch Out</TableHead>
+                  <TableHead>Login Time</TableHead>
+                  <TableHead>Logout Time</TableHead>
                   <TableHead>Hours</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Mode</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {attendance.map((a: any) => {
-                  const cls = a.status === "present" ? "badge-present" : a.status === "half_day" ? "badge-half-day" : a.status === "on_leave" ? "badge-on-leave" : "badge-absent";
+                  const cls = a.status === "PRESENT" ? "badge-present" : a.status === "LATE" ? "badge-half-day" : a.mode === "LEAVE" ? "badge-on-leave" : "badge-absent";
+                  let hours = 0;
+                  if (a.login_time && a.logout_time) {
+                    hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
+                  }
                   return (
                     <TableRow key={a.id}>
                       <TableCell className="font-medium text-sm">{(a as any).profiles?.full_name}</TableCell>
                       <TableCell className="text-sm">{(a as any).profiles?.department}</TableCell>
-                      <TableCell className="text-sm">{a.punch_in ? format(new Date(a.punch_in), "hh:mm a") : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.punch_out ? format(new Date(a.punch_out), "hh:mm a") : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.worked_hours || 0}</TableCell>
+                      <TableCell className="text-sm">{a.login_time ? format(new Date(a.login_time), "hh:mm a") : "—"}</TableCell>
+                      <TableCell className="text-sm">{a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : "—"}</TableCell>
+                      <TableCell className="text-sm">{hours > 0 ? hours.toFixed(1) : 0}</TableCell>
                       <TableCell>
                         <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-                          {a.status?.replace("_", " ")}
+                          {a.status}
                         </span>
                       </TableCell>
+                      <TableCell className="text-sm">{a.mode || "-"}</TableCell>
                     </TableRow>
                   );
                 })}

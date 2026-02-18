@@ -24,7 +24,7 @@ const employeeLinks = [
 
 const adminLinks = [
   { to: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/admin/add-employee", icon: UserPlus, label: "Add Employee" },
+  { to: "/admin/employees", icon: Users, label: "Employees" },
   { to: "/admin/attendance", icon: Users, label: "Attendance Overview" },
   { to: "/admin/leaves", icon: CheckCircle, label: "Leave Approval" },
   { to: "/admin/reports", icon: FileBarChart, label: "Monthly Reports" },
@@ -84,9 +84,8 @@ const AppSidebar = () => {
         {/* Notifications link */}
         <NavLink
           to={isAdmin ? "/admin/notifications" : "/employee/notifications"}
-          className={`sidebar-link ${
-            location.pathname.includes("notifications") ? "sidebar-link-active" : "sidebar-link-inactive"
-          }`}
+          className={`sidebar-link ${location.pathname.includes("notifications") ? "sidebar-link-active" : "sidebar-link-inactive"
+            }`}
         >
           <Bell className="h-4 w-4" />
           <span>Notifications</span>

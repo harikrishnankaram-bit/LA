@@ -1,0 +1,2 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company TEXT DEFAULT 'Tensemi';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;

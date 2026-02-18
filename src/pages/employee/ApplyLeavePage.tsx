@@ -17,8 +17,8 @@ const leaveTypes = ["Casual Leave", "Sick Leave", "Earned Leave", "Personal Leav
 const ApplyLeavePage = () => {
   const { user } = useAuth();
   const [leaveType, setLeaveType] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,12 +38,12 @@ const ApplyLeavePage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!leaveType || !fromDate || !toDate || !reason.trim()) {
+    if (!leaveType || !startDate || !endDate || !reason.trim()) {
       toast.error("Please fill all fields");
       return;
     }
-    if (new Date(toDate) < new Date(fromDate)) {
-      toast.error("To date must be after from date");
+    if (new Date(endDate) < new Date(startDate)) {
+      toast.error("End date must be after start date");
       return;
     }
     setSubmitting(true);
@@ -51,9 +51,10 @@ const ApplyLeavePage = () => {
       const { error } = await supabase.from("leaves").insert({
         user_id: user!.id,
         leave_type: leaveType,
-        from_date: fromDate,
-        to_date: toDate,
+        start_date: startDate,
+        end_date: endDate,
         reason: reason.trim(),
+        status: 'PENDING'
       });
       if (error) throw error;
 
@@ -67,14 +68,14 @@ const ApplyLeavePage = () => {
       if (adminProfile) {
         await supabase.from("notifications").insert({
           user_id: adminProfile.user_id,
-          message: `New leave request from employee (${leaveType}: ${fromDate} to ${toDate})`,
+          message: `New leave request from employee (${leaveType}: ${startDate} to ${endDate})`,
         });
       }
 
       toast.success("Leave applied successfully!");
       setLeaveType("");
-      setFromDate("");
-      setToDate("");
+      setStartDate("");
+      setEndDate("");
       setReason("");
       refetch();
     } catch (err: any) {
@@ -85,8 +86,8 @@ const ApplyLeavePage = () => {
   };
 
   const statusBadge = (status: string) => {
-    const cls = status === "approved" ? "badge-approved" : status === "rejected" ? "badge-rejected" : "badge-pending";
-    return <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${cls}`}>{status}</span>;
+    const cls = status === "APPROVED" ? "bg-green-100 text-green-700" : status === "REJECTED" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700";
+    return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${cls}`}>{status.toLowerCase()}</span>;
   };
 
   return (
@@ -116,12 +117,12 @@ const ApplyLeavePage = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>From Date</Label>
-                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                  <Label>Start Date</Label>
+                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>To Date</Label>
-                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                  <Label>End Date</Label>
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-2">
@@ -155,7 +156,7 @@ const ApplyLeavePage = () => {
                       {statusBadge(leave.status)}
                     </div>
                     <p className="text-muted-foreground text-xs">
-                      {format(new Date(leave.from_date), "dd MMM")} — {format(new Date(leave.to_date), "dd MMM yyyy")}
+                      {format(new Date(leave.start_date), "dd MMM")} — {format(new Date(leave.end_date), "dd MMM yyyy")}
                     </p>
                     {leave.admin_comment && (
                       <p className="mt-1 text-xs text-muted-foreground italic">Admin: {leave.admin_comment}</p>

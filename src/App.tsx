@@ -12,7 +12,7 @@ import PunchInPage from "@/pages/employee/PunchInPage";
 import ApplyLeavePage from "@/pages/employee/ApplyLeavePage";
 import EmployeeMonthlyReport from "@/pages/employee/EmployeeMonthlyReport";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AddEmployeePage from "@/pages/admin/AddEmployeePage";
+import EmployeesPage from "@/pages/admin/EmployeesPage";
 import AttendanceOverview from "@/pages/admin/AttendanceOverview";
 import LeaveApprovalPage from "@/pages/admin/LeaveApprovalPage";
 import AdminMonthlyReports from "@/pages/admin/AdminMonthlyReports";
@@ -38,6 +38,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin/login" element={<LoginPage isAdmin={true} />} />
 
             {/* Employee Routes */}
             <Route path="/employee" element={<ProtectedRoute requiredRole="employee"><DashboardLayout /></ProtectedRoute>}>
@@ -51,7 +52,7 @@ const App = () => (
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<AdminDashboard />} />
-              <Route path="add-employee" element={<AddEmployeePage />} />
+              <Route path="employees" element={<EmployeesPage />} />
               <Route path="attendance" element={<AttendanceOverview />} />
               <Route path="leaves" element={<LeaveApprovalPage />} />
               <Route path="reports" element={<AdminMonthlyReports />} />

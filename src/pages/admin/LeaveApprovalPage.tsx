@@ -17,13 +17,13 @@ const LeaveApprovalPage = () => {
       const { data } = await supabase
         .from("leaves")
         .select("*, profiles!inner(full_name, department)")
-        .eq("status", "pending")
+        .eq("status", "PENDING")
         .order("created_at", { ascending: false });
       return data || [];
     },
   });
 
-  const handleAction = async (leaveId: string, userId: string, action: "approved" | "rejected") => {
+  const handleAction = async (leaveId: string, userId: string, action: "APPROVED" | "REJECTED") => {
     try {
       const { error } = await supabase
         .from("leaves")
@@ -31,19 +31,23 @@ const LeaveApprovalPage = () => {
         .eq("id", leaveId);
       if (error) throw error;
 
-      // If approved, mark attendance as on_leave for those dates
-      if (action === "approved") {
+      // If approved, mark attendance as ABSENT (LEAVE mode) for those dates
+      if (action === "APPROVED") {
         const leave = pendingLeaves.find((l: any) => l.id === leaveId);
         if (leave) {
-          const start = new Date(leave.from_date);
-          const end = new Date(leave.to_date);
+          const start = new Date(leave.start_date);
+          const end = new Date(leave.end_date);
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = format(d, "yyyy-MM-dd");
-            await supabase.from("attendance").upsert({
+            // Upsert into attendance_daily as per strictly defined schema
+            await supabase.from("attendance_daily").upsert({
               user_id: userId,
               date: dateStr,
-              status: "on_leave",
-              worked_hours: 0,
+              mode: "LEAVE",
+              status: "ABSENT",
+              login_time: null,
+              logout_time: null,
+              late_minutes: 0,
             }, { onConflict: "user_id,date" });
           }
         }
@@ -52,7 +56,7 @@ const LeaveApprovalPage = () => {
       // Notify employee
       await supabase.from("notifications").insert({
         user_id: userId,
-        message: `Your leave has been ${action === "approved" ? "Approved" : "Rejected"}${comment[leaveId] ? `: ${comment[leaveId]}` : ""}`,
+        message: `Your leave has been ${action === "APPROVED" ? "Approved" : "Rejected"}${comment[leaveId] ? `: ${comment[leaveId]}` : ""}`,
       });
 
       toast.success(`Leave ${action}`);
@@ -85,7 +89,7 @@ const LeaveApprovalPage = () => {
                     <div className="mt-2 text-sm">
                       <span className="font-medium">{leave.leave_type}</span>
                       <span className="text-muted-foreground ml-2">
-                        {format(new Date(leave.from_date), "dd MMM")} — {format(new Date(leave.to_date), "dd MMM yyyy")}
+                        {format(new Date(leave.start_date), "dd MMM")} — {format(new Date(leave.end_date), "dd MMM yyyy")}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">{leave.reason}</p>
@@ -99,10 +103,10 @@ const LeaveApprovalPage = () => {
                       maxLength={200}
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => handleAction(leave.id, leave.user_id, "approved")} className="flex-1">
+                      <Button size="sm" onClick={() => handleAction(leave.id, leave.user_id, "APPROVED")} className="flex-1">
                         <CheckCircle className="mr-1 h-3.5 w-3.5" />Approve
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleAction(leave.id, leave.user_id, "rejected")} className="flex-1">
+                      <Button size="sm" variant="destructive" onClick={() => handleAction(leave.id, leave.user_id, "REJECTED")} className="flex-1">
                         <XCircle className="mr-1 h-3.5 w-3.5" />Reject
                       </Button>
                     </div>
