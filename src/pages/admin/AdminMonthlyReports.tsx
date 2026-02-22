@@ -15,7 +15,8 @@ const months = [
 ];
 
 const AdminMonthlyReports = () => {
-  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("all");
+  const [selectedEmployee, setSelectedEmployee] = useState("all");
   const [month, setMonth] = useState(String(new Date().getMonth()));
 
   const { data: employees = [] } = useQuery({
@@ -32,20 +33,32 @@ const AdminMonthlyReports = () => {
   const endDate = format(endOfMonth(new Date(year, selectedMonth)), "yyyy-MM-dd");
   const totalDays = getDaysInMonth(new Date(year, selectedMonth));
 
-  const { data: attendance = [] } = useQuery({
-    queryKey: ["admin-report", selectedEmployee, startDate],
+  const filteredEmployees = selectedCompany === "all" ? employees : employees.filter((e: any) => e.company === selectedCompany);
+
+  const { data: attendance = [], isLoading } = useQuery({
+    queryKey: ["admin-report", selectedEmployee, selectedCompany, startDate, employees.length],
     queryFn: async () => {
-      if (!selectedEmployee) return [];
-      const { data } = await supabase
+      if (employees.length === 0) return [];
+
+      let query = supabase
         .from("attendance_daily")
         .select("*")
-        .eq("user_id", selectedEmployee)
         .gte("date", startDate)
         .lte("date", endDate)
-        .order("date");
+        .order("date", { ascending: false });
+
+      if (selectedEmployee !== "all" && selectedEmployee !== "") {
+        query = query.eq("user_id", selectedEmployee);
+      } else {
+        const allowedIds = filteredEmployees.map((e: any) => e.user_id);
+        if (allowedIds.length === 0) return [];
+        query = query.in("user_id", allowedIds);
+      }
+
+      const { data } = await query;
       return data || [];
     },
-    enabled: !!selectedEmployee,
+    enabled: employees.length > 0,
   });
 
   const presentDays = attendance.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
@@ -68,21 +81,23 @@ const AdminMonthlyReports = () => {
 
   const downloadCSV = () => {
     if (!attendance.length) return;
-    const emp = employees.find((e: any) => e.user_id === selectedEmployee);
-    const headers = "Date,Login Time,Logout Time,Hours,Status,Mode\n";
+    const headers = "Employee Name,Company,Date,Login Time,Logout Time,Hours,Status,Mode\n";
     const rows = attendance.map((a: any) => {
+      const emp = employees.find((e: any) => e.user_id === a.user_id);
       let hours = 0;
       if (a.login_time && a.logout_time) {
         hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
       }
-      return `${a.date},${a.login_time ? format(new Date(a.login_time), "hh:mm a") : ""},${a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : ""},${hours.toFixed(2)},${a.status},${a.mode}`;
+      return `"${emp?.full_name || ""}","${emp?.company || ""}",${a.date},${a.login_time ? format(new Date(a.login_time), "hh:mm a") : ""},${a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : ""},${hours.toFixed(2)},${a.status},${a.mode}`;
     }).join("\n");
-    const summary = `\n\nSummary\nTotal Days,${totalDays}\nPresent,${presentDays}\nLate,${lateDays}\nAbsent,${absentDays}\nLeave,${leaveDays}\nTotal Hours,${totalWorked.toFixed(1)}\nAvg Hours/Day,${avgHours}`;
+    const summary = `\n\nSummary\nExpected Days in Month,${totalDays}\nCombined Present,${presentDays}\nCombined Late,${lateDays}\nCombined Absent,${absentDays}\nCombined Leave,${leaveDays}\nTotal Combined Hours,${totalWorked.toFixed(1)}\nAvg Hours/Day,${avgHours}`;
     const blob = new Blob([headers + rows + summary], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${emp?.full_name || "report"}_${months[selectedMonth]}_${year}.csv`;
+
+    const prefix = selectedEmployee !== "all" ? employees.find((e: any) => e.user_id === selectedEmployee)?.full_name : selectedCompany !== "all" ? selectedCompany : "All_Companies";
+    a.download = `${prefix}_${months[selectedMonth]}_${year}.csv`;
     a.click();
   };
 
@@ -92,11 +107,25 @@ const AdminMonthlyReports = () => {
 
       <div className="mb-6 flex flex-wrap gap-3">
         <div className="space-y-1">
+          <Label className="text-xs">Company Filter</Label>
+          <Select value={selectedCompany} onValueChange={(val) => { setSelectedCompany(val); setSelectedEmployee("all"); }}>
+            <SelectTrigger className="w-40"><SelectValue placeholder="All Companies" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Companies</SelectItem>
+              <SelectItem value="Tensemi">Tensemi</SelectItem>
+              <SelectItem value="Aram">Aram</SelectItem>
+              <SelectItem value="Raphael Creatives">Raphael Creatives</SelectItem>
+              <SelectItem value="Kottravai">Kottravai</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
           <Label className="text-xs">Employee</Label>
           <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-            <SelectTrigger className="w-52"><SelectValue placeholder="Select employee" /></SelectTrigger>
+            <SelectTrigger className="w-52"><SelectValue placeholder="All Employees" /></SelectTrigger>
             <SelectContent>
-              {employees.map((e: any) => (
+              <SelectItem value="all">All Employees</SelectItem>
+              {filteredEmployees.map((e: any) => (
                 <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>
               ))}
             </SelectContent>
@@ -122,7 +151,7 @@ const AdminMonthlyReports = () => {
         )}
       </div>
 
-      {selectedEmployee && attendance.length > 0 && (
+      {attendance.length > 0 && (
         <>
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-7 mb-6">
             {[
@@ -153,6 +182,8 @@ const AdminMonthlyReports = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Company</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Login Time</TableHead>
                     <TableHead>Logout Time</TableHead>
@@ -163,6 +194,7 @@ const AdminMonthlyReports = () => {
                 </TableHeader>
                 <TableBody>
                   {attendance.map((a: any) => {
+                    const emp = employees.find((e: any) => e.user_id === a.user_id);
                     const cls = a.status === "PRESENT" ? "badge-present" : a.status === "LATE" ? "badge-half-day" : a.mode === "LEAVE" ? "badge-on-leave" : "badge-absent";
                     let hours = 0;
                     if (a.login_time && a.logout_time) {
@@ -170,6 +202,8 @@ const AdminMonthlyReports = () => {
                     }
                     return (
                       <TableRow key={a.id}>
+                        <TableCell className="font-medium text-sm">{emp?.full_name || "Unknown"}</TableCell>
+                        <TableCell className="text-sm">{emp?.company || "-"}</TableCell>
                         <TableCell className="text-sm">{format(new Date(a.date), "dd MMM")}</TableCell>
                         <TableCell className="text-sm">{a.login_time ? format(new Date(a.login_time), "hh:mm a") : "—"}</TableCell>
                         <TableCell className="text-sm">{a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : "—"}</TableCell>
@@ -190,7 +224,7 @@ const AdminMonthlyReports = () => {
         </>
       )}
 
-      {selectedEmployee && attendance.length === 0 && (
+      {attendance.length === 0 && !isLoading && (
         <Card className="stat-card">
           <CardContent className="p-0 text-center py-8">
             <p className="text-muted-foreground">No records found for selected employee and month</p>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, Search, Loader2, Edit, Trash, MoreVertical } from "lucide-react";
+import { UserPlus, Search, Loader2, Edit, Trash, MoreVertical, Key } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,23 +30,28 @@ const EmployeesPage = () => {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteOpen, setDeleteOpen] = useState(false);
 
+    // Password Reset state
+    const [resetEmp, setResetEmp] = useState<any>(null);
+    const [resetOpen, setResetOpen] = useState(false);
+
     const [form, setForm] = useState({
         full_name: "",
         username: "",
-        password: "",
         department: "",
-        joining_date: "",
         phone_number: "",
-        company: "Tensemi", // Default
+        company: "Vaazhai",
     });
+
+
 
     const fetchEmployees = async () => {
         setLoading(true);
         const { data, error } = await supabase
             .from("profiles")
             .select("*")
-            .eq("role", "employee")
+            .neq("role", "admin")
             .order("created_at", { ascending: false });
+
 
         if (!error && data) {
             setEmployees(data);
@@ -59,7 +64,9 @@ const EmployeesPage = () => {
     }, []);
 
     const resetForm = () => {
-        setForm({ full_name: "", username: "", password: "", department: "", joining_date: "", phone_number: "", company: "Tensemi" });
+        setForm({ full_name: "", username: "", department: "", phone_number: "", company: "Vaazhai" });
+
+
         setEditMode(false);
         setCurrentId(null);
     };
@@ -72,14 +79,14 @@ const EmployeesPage = () => {
     const handleOpenEdit = (emp: any) => {
         setForm({
             full_name: emp.full_name,
-            username: emp.username.split('@')[0], // Extract username part
-            password: "", // Password logic: empty means no change for edit
+            username: emp.username, // Keep full email
             department: emp.department || "",
-            joining_date: emp.joining_date || "",
             phone_number: emp.phone_number || "",
-            company: emp.company || "Tensemi",
+            company: emp.company || "Vaazhai",
         });
-        setCurrentId(emp.id);
+
+
+        setCurrentId(emp.user_id);
         setEditMode(true);
         setOpen(true);
     };
@@ -87,56 +94,112 @@ const EmployeesPage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!form.full_name || !form.department || !form.joining_date) {
+        if (!form.full_name || !form.department) {
             toast.error("Please fill all required fields");
             return;
         }
 
-        if (!editMode && (!form.username || !form.password)) {
-            toast.error("Username and password are required for new employees");
-            return;
-        }
-
-        if (!editMode && form.password.length < 6) {
-            toast.error("Password must be at least 6 characters");
+        if (!editMode && !form.username) {
+            toast.error("Mail ID is required");
             return;
         }
 
         setSubmitting(true);
         try {
-            const action = editMode ? "update-employee" : "create-employee";
-            const payload: any = {
-                action,
-                full_name: form.full_name,
-                department: form.department,
-                joining_date: form.joining_date,
-                company: form.company,
-                phone_number: form.phone_number,
-            };
+            if (editMode && currentId) {
+                // UPDATE EXISTING EMPLOYEE
+                const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+                const { createClient } = await import('@supabase/supabase-js');
+                const adminClient = createClient(import.meta.env.VITE_SUPABASE_URL, serviceRoleKey!, { auth: { persistSession: false } });
 
-            if (editMode) {
-                payload.id = currentId;
-                // If password provided during edit, we could support password reset here 
-                // but currently API update-employee primarily handles metadata.
-                // Depending on security requirements, password reset might need separate flow.
+                // 1. Update Auth Metadata (so identity is consistent)
+                await adminClient.auth.admin.updateUserById(currentId, {
+                    user_metadata: {
+                        full_name: form.full_name,
+                        department: form.department,
+                        company: form.company,
+                        phone_number: form.phone_number,
+                    }
+                });
+
+                // 2. Update Profiles table
+                const { error: profileError } = await adminClient
+                    .from("profiles")
+                    .update({
+                        full_name: form.full_name,
+                        department: form.department,
+                        company: form.company,
+                        phone_number: form.phone_number,
+                    })
+                    .eq("user_id", currentId);
+
+                if (profileError) throw profileError;
+                toast.success("Employee updated successfully!");
+
             } else {
-                payload.username = form.username;
-                payload.password = form.password;
+                // CREATE NEW EMPLOYEE
+                const companyPart = form.company ? form.company.replace(/\s+/g, '') : "Vaazhai";
+                let last4 = form.phone_number ? form.phone_number.replace(/\D/g, '').slice(-4) : "";
+                if (last4.length < 4) last4 = "1234";
+                const generatedPassword = `${companyPart}@${last4}`;
+
+                // Using service role key directly in frontend to bypass "signups disabled"
+                const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+                if (!serviceRoleKey) {
+                    throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
+                }
+
+                const { createClient } = await import('@supabase/supabase-js');
+                const adminClient = createClient(
+                    import.meta.env.VITE_SUPABASE_URL,
+                    serviceRoleKey,
+                    { auth: { persistSession: false } }
+                );
+
+                const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+                    email: form.username,
+                    password: generatedPassword,
+                    email_confirm: true,
+                    user_metadata: {
+                        full_name: form.full_name,
+                        username: form.username,
+                        role: "employee",
+                        department: form.department,
+                        company: form.company,
+                        phone_number: form.phone_number,
+                    }
+                });
+
+                if (authError) throw authError;
+
+                // SMALL DELAY + MANUAL FALLBACK
+                // Wait 500ms for the DB trigger to finish, then forcefully sync the profile
+                // just in case the trigger failed or missed some columns.
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                if (authData.user) {
+                    const { error: syncError } = await adminClient.from("profiles").upsert({
+                        user_id: authData.user.id,
+                        full_name: form.full_name,
+                        username: form.username,
+                        department: form.department,
+                        company: form.company,
+                        phone_number: form.phone_number,
+                        role: "employee"
+                    }, { onConflict: 'user_id' });
+
+                    if (syncError) console.error("Manual profile sync failed:", syncError);
+                }
+
+                toast.success(`Account created! Default Password: ${generatedPassword}`, { duration: 8000 });
             }
 
-            const res = await supabase.functions.invoke("manage-users", {
-                body: payload,
-            });
-
-            if (res.error) throw res.error;
-            if (res.data?.error) throw new Error(res.data.error);
-
-            toast.success(`Employee ${editMode ? "updated" : "created"} successfully!`);
             setOpen(false);
+
             resetForm();
             fetchEmployees();
         } catch (err: any) {
-            toast.error(err.message || `Failed to ${editMode ? "update" : "create"} employee`);
+            toast.error(err.message || "Operation failed");
         } finally {
             setSubmitting(false);
         }
@@ -144,25 +207,80 @@ const EmployeesPage = () => {
 
     const handleDelete = async () => {
         if (!deleteId) return;
-        setSubmitting(true); // Reuse submitting state for delete loading
+        setSubmitting(true);
         try {
-            const res = await supabase.functions.invoke("manage-users", {
-                body: { action: "delete-employee", id: deleteId },
-            });
+            // Note: Direct deletion of Auth users from frontend is not allowed for security with ANON key.
+            // But we can use the service role key if we really want to delete the auth user too.
+            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-            if (res.error) throw res.error;
-            if (res.data?.error) throw new Error(res.data.error);
+            if (serviceRoleKey) {
+                const { createClient } = await import('@supabase/supabase-js');
+                const adminClient = createClient(
+                    import.meta.env.VITE_SUPABASE_URL,
+                    serviceRoleKey,
+                    { auth: { persistSession: false } }
+                );
+                await adminClient.auth.admin.deleteUser(deleteId);
+            }
 
-            toast.success("Employee deleted successfully");
+            const { error: profileError } = await supabase
+                .from("profiles")
+                .delete()
+                .eq("user_id", deleteId);
+
+            if (profileError) throw profileError;
+
+            toast.success("Employee removed successfully");
             setDeleteId(null);
             setDeleteOpen(false);
             fetchEmployees();
         } catch (err: any) {
-            toast.error(err.message || "Failed to delete employee");
+            toast.error(err.message || "Failed to delete");
         } finally {
             setSubmitting(false);
         }
     };
+
+    const handleResetPassword = (emp: any) => {
+        setResetEmp(emp);
+        setResetOpen(true);
+    };
+
+    const confirmResetPassword = async () => {
+        if (!resetEmp) return;
+        const emp = resetEmp;
+        let companyPart = emp.company ? emp.company.replace(/\s+/g, '') : "Vaazhai";
+        let last4 = emp.phone_number ? emp.phone_number.replace(/\D/g, '').slice(-4) : "";
+        if (last4.length < 4) last4 = "1234";
+        let newPassword = `${companyPart}@${last4}`;
+
+        setSubmitting(true);
+        try {
+            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+            if (!serviceRoleKey) throw new Error("Missing service role key");
+
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                serviceRoleKey,
+                { auth: { persistSession: false } }
+            );
+
+            const { error } = await adminClient.auth.admin.updateUserById(emp.user_id, {
+                password: newPassword
+            });
+
+            if (error) throw error;
+            toast.success(`Password reset to: ${newPassword}`, { duration: 8000 });
+            setResetOpen(false);
+            setResetEmp(null);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to reset password");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
 
     const confirmDelete = (id: string) => {
         setDeleteId(id);
@@ -172,7 +290,8 @@ const EmployeesPage = () => {
     const filteredEmployees = employees.filter(emp =>
         emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.username.toLowerCase().includes(searchTerm.toLowerCase())
+        emp.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.phone_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -212,13 +331,6 @@ const EmployeesPage = () => {
                                     <p className="text-[0.8rem] text-muted-foreground">This will be used for login.</p>
                                 </div>
 
-                                {!editMode && (
-                                    <div className="space-y-2">
-                                        <Label>Password</Label>
-                                        <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" />
-                                    </div>
-                                )}
-
                                 <div className="space-y-2">
                                     <Label>Phone Number</Label>
                                     <Input type="tel" value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="+91 9876543210" />
@@ -247,10 +359,6 @@ const EmployeesPage = () => {
                                     <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Engineering" maxLength={50} />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label>Joining Date</Label>
-                                    <Input type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
-                                </div>
                             </div>
 
                             <DialogFooter>
@@ -263,6 +371,7 @@ const EmployeesPage = () => {
                                     {editMode ? "Update details" : "Create Account"}
                                 </Button>
                             </DialogFooter>
+
                         </form>
                     </DialogContent>
                 </Dialog>
@@ -290,9 +399,12 @@ const EmployeesPage = () => {
                                 <TableRow>
                                     <TableHead>Full Name</TableHead>
                                     <TableHead>Username</TableHead>
+                                    <TableHead>Company</TableHead>
                                     <TableHead>Department</TableHead>
-                                    <TableHead>Joining Date</TableHead>
+                                    <TableHead>Phone Number</TableHead>
+                                    <TableHead>Role</TableHead>
                                     <TableHead>Status</TableHead>
+
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -322,14 +434,29 @@ const EmployeesPage = () => {
                                             </TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{emp.username}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{emp.department}</Badge>
+                                                <Badge variant="secondary" className="gap-1 px-1.5 py-1">
+                                                    <img
+                                                        src={`/${emp.company || "Vaazhai"}.png`}
+                                                        alt=""
+                                                        className="h-4 w-4 object-contain"
+                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                    />
+                                                    {emp.company || "Vaazhai"}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                {emp.joining_date ? format(new Date(emp.joining_date), 'MMM dd, yyyy') : '-'}
+                                                <Badge variant="outline">{emp.department}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-sm font-mono">{emp.phone_number || '-'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={emp.role === 'admin' ? "default" : "outline"}>
+                                                    {emp.role || 'employee'}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Active</Badge>
                                             </TableCell>
+
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -343,8 +470,12 @@ const EmployeesPage = () => {
                                                             <Edit className="mr-2 h-4 w-4" />
                                                             Edit
                                                         </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleResetPassword(emp)}>
+                                                            <Key className="mr-2 h-4 w-4" />
+                                                            Reset Password
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem
-                                                            onClick={() => confirmDelete(emp.id)}
+                                                            onClick={() => confirmDelete(emp.user_id)}
                                                             className="text-red-600 focus:text-red-600 focus:bg-red-50"
                                                         >
                                                             <Trash className="mr-2 h-4 w-4" />
@@ -378,6 +509,28 @@ const EmployeesPage = () => {
                             disabled={submitting}
                         >
                             {submitting ? "Deleting..." : "Delete Employee"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to reset the password for <strong>{resetEmp?.full_name}</strong>?
+                            The new password will be auto-generated based on their company and phone number.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setResetEmp(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmResetPassword}
+                            className="bg-primary text-white"
+                            disabled={submitting}
+                        >
+                            {submitting ? "Resetting..." : "Confirm Reset"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

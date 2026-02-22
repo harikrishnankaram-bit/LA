@@ -9,7 +9,8 @@ interface Profile {
   username: string;
   role: "admin" | "employee";
   department: string | null;
-  joining_date: string | null;
+  company: string | null;
+  phone_number: string | null;
 }
 
 interface AuthContextType {
@@ -34,20 +35,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    console.log("FETCHING PROFILE FOR:", userId);
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle(); // Changed from .single() to .maybeSingle() to avoid 406 errors
 
-      if (error) {
-        console.error("PROFILE FETCH ERROR:", error);
-      } else if (data) {
-        console.log("PROFILE FETCHED:", data);
-        console.log("ROLE:", data.role);
+      if (data) {
         setProfile(data as Profile);
+      } else {
+        // Fallback: If no profile row exists, check the Auth Metadata (Standard for Admin)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.user_metadata?.role === "admin") {
+          setProfile({
+            id: user.id,
+            user_id: user.id,
+            full_name: user.user_metadata.full_name || "Admin",
+            username: user.email || "admin",
+            role: "admin",
+            department: "Admin",
+            company: "Vaazhai",
+            phone_number: ""
+          });
+        }
       }
     } catch (err) {
       console.error("UNEXPECTED PROFILE FETCH ERROR:", err);
@@ -102,10 +113,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (username: string, password: string) => {
     // Determine email from username
     let email: string;
-    if (username === "admin@vaazhai") {
+    if (username === "admin@vaazhai" || username === "admin") {
       email = "admin@vaazhai.com";
     } else {
-      email = `${username.replace(/[^a-zA-Z0-9]/g, '')}@vaazhai.emp`;
+      // The user now enters their actual email as their username
+      email = username.trim();
     }
 
     console.log("LOGIN ATTEMPT:", email);

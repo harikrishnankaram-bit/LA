@@ -16,8 +16,10 @@ import EmployeesPage from "@/pages/admin/EmployeesPage";
 import AttendanceOverview from "@/pages/admin/AttendanceOverview";
 import LeaveApprovalPage from "@/pages/admin/LeaveApprovalPage";
 import AdminMonthlyReports from "@/pages/admin/AdminMonthlyReports";
+import CompanyHolidaysPage from "@/pages/admin/CompanyHolidaysPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import NotFound from "@/pages/NotFound";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -28,43 +30,46 @@ const HomeRedirect = () => {
   return <Navigate to={profile?.role === "admin" ? "/admin" : "/employee"} replace />;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<HomeRedirect />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/admin/login" element={<LoginPage isAdmin={true} />} />
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<HomeRedirect />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/admin/login" element={<LoginPage isAdmin={true} />} />
 
-            {/* Employee Routes */}
-            <Route path="/employee" element={<ProtectedRoute requiredRole="employee"><DashboardLayout /></ProtectedRoute>}>
-              <Route index element={<EmployeeDashboard />} />
-              <Route path="punch" element={<PunchInPage />} />
-              <Route path="leave" element={<ApplyLeavePage />} />
-              <Route path="report" element={<EmployeeMonthlyReport />} />
-              <Route path="notifications" element={<NotificationsPage />} />
-            </Route>
+              {/* Employee Routes */}
+              <Route path="/employee" element={<ProtectedRoute requiredRole="employee"><DashboardLayout /></ProtectedRoute>}>
+                <Route index element={<EmployeeDashboard />} />
+                <Route path="punch" element={<PunchInPage />} />
+                <Route path="leave" element={<ApplyLeavePage />} />
+                <Route path="report" element={<EmployeeMonthlyReport />} />
+                <Route path="notifications" element={<NotificationsPage />} />
+              </Route>
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><DashboardLayout /></ProtectedRoute>}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="employees" element={<EmployeesPage />} />
-              <Route path="attendance" element={<AttendanceOverview />} />
-              <Route path="leaves" element={<LeaveApprovalPage />} />
-              <Route path="reports" element={<AdminMonthlyReports />} />
-              <Route path="notifications" element={<NotificationsPage />} />
-            </Route>
+              {/* Admin Routes */}
+              <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><DashboardLayout /></ProtectedRoute>}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="employees" element={<EmployeesPage />} />
+                <Route path="attendance" element={<AttendanceOverview />} />
+                <Route path="leaves" element={<LeaveApprovalPage />} />
+                <Route path="holidays" element={<CompanyHolidaysPage />} />
+                <Route path="reports" element={<AdminMonthlyReports />} />
+                <Route path="notifications" element={<NotificationsPage />} />
+              </Route>
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

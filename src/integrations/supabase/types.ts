@@ -167,6 +167,30 @@ export type Database = {
         }
         Relationships: []
       }
+      company_holidays: {
+        Row: {
+          id: string
+          date: string
+          name: string
+          company: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          date: string
+          name: string
+          company?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          date?: string
+          name?: string
+          company?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
