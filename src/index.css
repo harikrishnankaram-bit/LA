@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 0 0% 100%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,25 +16,25 @@
     --popover-foreground: 222 47% 11%;
 
     --primary: 160 84% 39%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222 47% 11.2%;
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215.4 16.3% 50%;
 
-    --accent: 160 84% 39%;
+    --accent: 160 81% 43%;
     --accent-foreground: 222 47% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 160 84% 39%;
+    --ring: 160 84% 33%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
@@ -56,32 +56,32 @@
   .dark {
     --background: 222 47% 4%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 7%;
+    --card: 222 47% 6%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 7%;
+    --popover: 222 47% 6%;
     --popover-foreground: 210 40% 98%;
-    --primary: 160 84% 45%;
+    --primary: 160 81% 45%;
     --primary-foreground: 222 47% 4%;
-    --secondary: 222 47% 12%;
+    --secondary: 222 47% 10%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 12%;
+    --muted: 222 47% 10%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 160 84% 45%;
+    --accent: 160 81% 45%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
-    --ring: 160 84% 45%;
-    --sidebar-background: 222 47% 6%;
+    --border: 222 47% 14%;
+    --input: 222 47% 14%;
+    --ring: 160 81% 45%;
+    --sidebar-background: 222 47% 5%;
     --sidebar-foreground: 210 40% 95%;
-    --sidebar-primary: 160 84% 45%;
+    --sidebar-primary: 160 81% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 12%;
-    --sidebar-accent-foreground: 160 84% 45%;
-    --sidebar-border: 222 47% 15%;
-    --sidebar-ring: 160 84% 45%;
-    --success: 160 84% 45%;
+    --sidebar-accent: 222 47% 10%;
+    --sidebar-accent-foreground: 160 81% 45%;
+    --sidebar-border: 222 47% 14%;
+    --sidebar-ring: 160 81% 45%;
+    --success: 160 81% 45%;
     --success-foreground: 222 47% 4%;
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 4%;
@@ -143,7 +143,7 @@
 
   /* Crystal Glass Morphism */
   .glass-card {
-    @apply bg-card/60 dark:bg-card/40 backdrop-blur-xl border border-border shadow-xl;
+    @apply bg-card/90 dark:bg-card/40 backdrop-blur-xl border border-border shadow-xl;
   }
 
   /* 3D and Hover Effects */
@@ -190,5 +190,87 @@
 
   .btn-gradient:hover::before {
     @apply opacity-100;
+  }
+
+  /* React Big Calendar Theme Overrides */
+  .rbc-calendar {
+    @apply font-sans;
+  }
+
+  .rbc-month-view {
+    @apply border-none bg-transparent !important;
+  }
+
+  .rbc-month-header {
+    @apply bg-secondary/30 rounded-t-2xl border-b border-border !important;
+  }
+
+  .rbc-header {
+    @apply py-4 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 border-none !important;
+  }
+
+  .rbc-day-bg {
+    @apply border-border/40 transition-all duration-300;
+  }
+
+  .rbc-day-bg+.rbc-day-bg {
+    @apply border-l border-border/40 !important;
+  }
+
+  .rbc-month-row+.rbc-month-row {
+    @apply border-t border-border/40 !important;
+  }
+
+  .rbc-day-bg:hover {
+    @apply bg-primary/5 cursor-pointer;
+  }
+
+  .rbc-today {
+    @apply bg-primary/10 !important;
+  }
+
+  .rbc-off-range-bg {
+    @apply bg-muted/20 !important;
+    opacity: 0.5;
+  }
+
+  .rbc-date-cell {
+    @apply p-3 text-xs font-black text-foreground/50 italic !important;
+  }
+
+  .rbc-date-cell.rbc-now {
+    @apply text-primary font-black scale-110 !important;
+  }
+
+  .rbc-event {
+    @apply bg-transparent p-0 border-none focus:outline-none !important;
+  }
+
+  .rbc-event-content {
+    @apply p-0 !important;
+  }
+
+  .rbc-show-more {
+    @apply text-[9px] font-black uppercase text-primary bg-primary/10 rounded-lg px-2 py-1 mt-1 !important;
+  }
+
+  /* Dark Mode specific overrides for calendar visibility */
+  .dark .rbc-month-view,
+  .dark .rbc-month-row,
+  .dark .rbc-day-bg,
+  .dark .rbc-header {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .dark .rbc-off-range-bg {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+  }
+
+  .dark .rbc-today {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+  }
+
+  .dark .rbc-date-cell {
+    @apply text-foreground/40 !important;
   }
 }

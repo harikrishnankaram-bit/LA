@@ -102,10 +102,10 @@ const AdminDashboard = () => {
   }
 
   const cards = [
-    { label: "Total Workforce", value: stats?.basicStats.totalEmployees || 0, icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
-    { label: "Active Nodes", value: stats?.basicStats.presentToday || 0, icon: UserCheck, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-    { label: "Standby (Leave)", value: stats?.basicStats.onLeaveToday || 0, icon: Briefcase, color: "text-purple-400", bg: "bg-purple-500/10" },
-    { label: "Actions Pending", value: stats?.basicStats.pendingLeaves || 0, icon: AlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10" },
+    { label: "Total Workforce", value: stats?.basicStats.totalEmployees || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Active Nodes", value: stats?.basicStats.presentToday || 0, icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { label: "Standby (Leave)", value: stats?.basicStats.onLeaveToday || 0, icon: Briefcase, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Actions Pending", value: stats?.basicStats.pendingLeaves || 0, icon: AlertTriangle, color: "text-orange-500", bg: "bg-orange-500/10" },
   ];
 
   const containerVariants = {

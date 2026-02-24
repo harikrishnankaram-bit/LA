@@ -15,6 +15,7 @@ import {
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
+import { ThemeToggle } from "./ThemeToggle";
 
 const employeeLinks = [
   { to: "/employee", icon: LayoutDashboard, label: "Dashboard" },
@@ -75,35 +76,38 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
   }, [profile]);
 
   return (
-    <aside className="flex h-full w-full flex-col bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border shadow-xl">
-      <div className="flex items-center gap-3 px-6 py-8">
-        <div className="relative">
-          <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
-          <img
-            src={`/${profile?.company || "logo"}.png`}
-            alt="Logo"
-            className="relative h-10 w-auto object-contain"
-            onError={(e) => {
-              if (e.currentTarget.src.includes('logo.png')) {
-                e.currentTarget.style.display = 'none';
-              } else {
-                e.currentTarget.src = "/logo.png";
-              }
-            }}
-          />
+    <aside className="flex h-full w-full flex-col bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border shadow-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-8">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
+            <img
+              src={`/${profile?.company || "logo"}.png`}
+              alt="Logo"
+              className="relative h-10 w-auto object-contain"
+              onError={(e) => {
+                if (e.currentTarget.src.includes('logo.png')) {
+                  e.currentTarget.style.display = 'none';
+                } else {
+                  e.currentTarget.src = "/logo.png";
+                }
+              }}
+            />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-display text-lg font-black tracking-tighter text-foreground uppercase whitespace-nowrap">
+              {profile?.company || "VAAZHAI"} <span className="text-emerald-500">TK</span>
+            </h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50 leading-none mt-1">
+              {profile?.role} HUB
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col min-w-0">
-          <h1 className="font-display text-lg font-black tracking-tighter text-foreground uppercase whitespace-nowrap">
-            {profile?.company || "VAAZHAI"} <span className="text-emerald-500">TK</span>
-          </h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50 leading-none mt-1">
-            {profile?.role} INTERFACE
-          </p>
-        </div>
+        <ThemeToggle />
       </div>
 
-      <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto">
-        <p className="px-3 mb-2 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Navigation</p>
+      <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto scrollbar-hide">
+        <p className="px-3 mb-2 text-[10px] font-black text-foreground/60 uppercase tracking-[0.2em]">Core Operations</p>
         {links.map((link) => {
           const isActive = location.pathname === link.to;
           return (
@@ -111,37 +115,37 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
               key={link.to}
               to={link.to}
               onClick={onClose}
-              className={`group relative flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-bold transition-all duration-300 ${isActive
-                ? "bg-emerald-500 text-white shadow-[0_10px_20px_rgba(16,185,129,0.2)]"
+              className={`group relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 ${isActive
+                ? "bg-emerald-500 text-white shadow-[0_10px_25px_rgba(16,185,129,0.3)]"
                 : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 }`}
             >
               <link.icon className={`h-5 w-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
-              <span className="flex-1">{link.label}</span>
+              <span className="flex-1 italic tracking-tight">{link.label}</span>
               {isActive && (
-                <motion.div layoutId="activeArrow">
-                  <ChevronRight className="h-4 w-4 opacity-50" />
+                <motion.div layoutId="activeArrow" className="h-4 w-4 bg-white/20 rounded-lg flex items-center justify-center">
+                  <ChevronRight size={12} className="opacity-80" />
                 </motion.div>
               )}
             </NavLink>
           );
         })}
 
-        <div className="my-6 h-px bg-sidebar-border mx-3" />
-        <p className="px-3 mb-2 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Internal</p>
+        <div className="my-6 h-px bg-sidebar-border mx-3 opacity-50" />
+        <p className="px-3 mb-2 text-[10px] font-black text-foreground/60 uppercase tracking-[0.2em]">Transmission</p>
 
         <NavLink
           to={isAdmin ? "/admin/notifications" : "/employee/notifications"}
           onClick={onClose}
-          className={`group flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-bold transition-all duration-300 ${location.pathname.includes("notifications")
-            ? "bg-blue-500 text-white shadow-[0_10px_20px_rgba(59,130,246,0.2)]"
+          className={`group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 ${location.pathname.includes("notifications")
+            ? "bg-blue-500 text-white shadow-[0_10px_25px_rgba(59,130,246,0.3)]"
             : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             }`}
         >
           <Bell className="h-5 w-5" />
-          <span className="flex-1">Alerts</span>
+          <span className="flex-1 italic tracking-tight">System Alerts</span>
           {unread > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-lg bg-red-500 px-1.5 text-[10px] font-black text-white animate-pulse shadow-lg">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-lg bg-red-500 px-1.5 text-[9px] font-black text-white animate-pulse shadow-lg ring-4 ring-red-500/20">
               {unread}
             </span>
           )}
@@ -149,25 +153,25 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
       </nav>
 
       <div className="mt-auto p-4">
-        <div className="rounded-2xl bg-sidebar-accent/50 p-4 border border-sidebar-border relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-2 opacity-5 transition-opacity group-hover:opacity-20">
-            <LayoutDashboard size={40} className="text-foreground" />
+        <div className="rounded-[1.5rem] bg-sidebar-accent/30 p-4 border border-sidebar-border/50 relative overflow-hidden group backdrop-blur-sm">
+          <div className="absolute top-0 right-0 p-2 opacity-[0.03] transition-opacity group-hover:opacity-[0.08] pointer-events-none">
+            <LayoutDashboard size={60} className="text-foreground" />
           </div>
           <div className="relative z-10 flex items-center gap-3 mb-4">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center font-black text-lg text-white">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center font-black text-lg text-white shadow-lg">
               {profile?.full_name?.[0].toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold truncate leading-none mb-1 text-foreground">{profile?.full_name}</p>
-              <p className="text-[10px] text-muted-foreground font-bold truncate uppercase tracking-wider">{profile?.department || "General"}</p>
+              <p className="text-sm font-black truncate leading-none mb-1 text-foreground italic uppercase tracking-tight">{profile?.full_name}</p>
+              <p className="text-[9px] text-muted-foreground font-black truncate uppercase tracking-widest opacity-60">{profile?.department || "General Unit"}</p>
             </div>
           </div>
           <button
             onClick={signOut}
-            className="flex items-center justify-center gap-2 w-full rounded-xl bg-red-500/10 py-2.5 text-xs font-bold text-red-500 transition-all hover:bg-red-500 hover:text-white"
+            className="flex items-center justify-center gap-2 w-full rounded-xl bg-red-500/10 py-2.5 text-[10px] font-black text-red-500 transition-all hover:bg-red-500 hover:text-white uppercase tracking-widest"
           >
             <LogOut className="h-4 w-4" />
-            Terminate Session
+            Sign Out
           </button>
         </div>
       </div>

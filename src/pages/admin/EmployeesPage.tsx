@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, Search, Loader2, Edit, Trash, MoreVertical, Key } from "lucide-react";
+import { UserPlus, Search, Loader2, Edit, Trash, MoreVertical, Key, Users, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +26,7 @@ const EmployeesPage = () => {
     const [editMode, setEditMode] = useState(false);
     const [currentId, setCurrentId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     // Deletion state
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -109,8 +111,11 @@ const EmployeesPage = () => {
             if (editMode && currentId) {
                 // UPDATE EXISTING EMPLOYEE
                 const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+                if (!serviceRoleKey) {
+                    throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
+                }
                 const { createClient } = await import('@supabase/supabase-js');
-                const adminClient = createClient(import.meta.env.VITE_SUPABASE_URL, serviceRoleKey!, { auth: { persistSession: false } });
+                const adminClient = createClient(import.meta.env.VITE_SUPABASE_URL, serviceRoleKey, { auth: { persistSession: false } });
 
                 // 1. Update Auth Metadata (so identity is consistent)
                 await adminClient.auth.admin.updateUserById(currentId, {
@@ -209,21 +214,27 @@ const EmployeesPage = () => {
         if (!deleteId) return;
         setSubmitting(true);
         try {
-            // Note: Direct deletion of Auth users from frontend is not allowed for security with ANON key.
-            // But we can use the service role key if we really want to delete the auth user too.
             const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-
-            if (serviceRoleKey) {
-                const { createClient } = await import('@supabase/supabase-js');
-                const adminClient = createClient(
-                    import.meta.env.VITE_SUPABASE_URL,
-                    serviceRoleKey,
-                    { auth: { persistSession: false } }
-                );
-                await adminClient.auth.admin.deleteUser(deleteId);
+            if (!serviceRoleKey) {
+                throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
             }
 
-            const { error: profileError } = await supabase
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                serviceRoleKey,
+                { auth: { persistSession: false } }
+            );
+
+            // 1. Delete Auth User
+            const { error: authError } = await adminClient.auth.admin.deleteUser(deleteId);
+            if (authError) {
+                console.error("Auth deletion warning:", authError);
+                // We continue if it's already gone or if there's a soft error
+            }
+
+            // 2. Delete Profile using admin client (bypasses RLS)
+            const { error: profileError } = await adminClient
                 .from("profiles")
                 .delete()
                 .eq("user_id", deleteId);
@@ -281,6 +292,123 @@ const EmployeesPage = () => {
         }
     };
 
+    const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(sheet);
+
+            if (json.length === 0) {
+                toast.error("Excel file is empty");
+                setUploading(false);
+                return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+            if (!serviceRoleKey) {
+                throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
+            }
+
+            const { createClient } = await import('@supabase/supabase-js');
+            const adminClient = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                serviceRoleKey,
+                { auth: { persistSession: false } }
+            );
+
+            for (const row of json) {
+                const fullName = row["Full Name"];
+                const mailID = row["Mail ID"];
+                const phoneNumber = row["Phone Number"]?.toString() || "";
+                const company = row["Company"] || "Vaazhai";
+                const department = row["Department"];
+
+                if (!fullName || !mailID || !department) {
+                    errorCount++;
+                    continue;
+                }
+
+                const companyPart = company.replace(/\s+/g, '');
+                let last4 = phoneNumber.replace(/\D/g, '').slice(-4);
+                if (last4.length < 4) last4 = "1234";
+                const generatedPassword = `${companyPart}@${last4}`;
+
+                // Check if user exists first to prevent duplicate email error
+                const { data: existRes } = await adminClient.from("profiles").select("user_id").eq("username", mailID).maybeSingle();
+                if (existRes) {
+                    errorCount++;
+                    continue; // Skip existing user for simplicity
+                }
+
+                const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+                    email: mailID,
+                    password: generatedPassword,
+                    email_confirm: true,
+                    user_metadata: {
+                        full_name: fullName,
+                        username: mailID,
+                        role: "employee",
+                        department: department,
+                        company: company,
+                        phone_number: phoneNumber,
+                    }
+                });
+
+                if (authError) {
+                    console.error("Error creating user:", mailID, authError);
+                    errorCount++;
+                    continue;
+                }
+
+                // Wait for db triggers
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                if (authData.user) {
+                    const { error: syncError } = await adminClient.from("profiles").upsert({
+                        user_id: authData.user.id,
+                        full_name: fullName,
+                        username: mailID,
+                        department: department,
+                        company: company,
+                        phone_number: phoneNumber,
+                        role: "employee"
+                    }, { onConflict: 'user_id' });
+
+                    if (syncError) {
+                        console.error("Manual profile sync failed:", syncError);
+                        errorCount++;
+                    } else {
+                        successCount++;
+                    }
+                }
+            }
+
+            if (successCount > 0) {
+                toast.success(`Successfully uploaded ${successCount} employees.`);
+            }
+            if (errorCount > 0) {
+                toast.error(`Failed to upload ${errorCount} employees (missing fields or duplicates).`);
+            }
+
+            fetchEmployees();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to parse Excel file");
+            console.error(error);
+        } finally {
+            setUploading(false);
+            e.target.value = "";
+        }
+    };
+
 
     const confirmDelete = (id: string) => {
         setDeleteId(id);
@@ -288,198 +416,213 @@ const EmployeesPage = () => {
     };
 
     const filteredEmployees = employees.filter(emp =>
-        emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.phone_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h1 className="page-header mb-0">Employees</h1>
+                <h1 className="page-header text-foreground mb-0">Employees</h1>
 
-                <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={handleOpenAdd}>
-                            <UserPlus className="mr-2 h-4 w-4" /> Add Employee
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <input
+                            type="file"
+                            accept=".xlsx, .xls"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={handleExcelUpload}
+                            disabled={uploading}
+                        />
+                        <Button disabled={uploading} className="bg-blue-500 hover:bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-300">
+                            {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Upload Excel
                         </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>{editMode ? "Edit Employee" : "Add New Employee"}</DialogTitle>
-                            <DialogDescription>
-                                {editMode ? "Update employee details." : "Create a new employee account."}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                            <div className="space-y-4 py-2">
-                                <div className="space-y-2">
-                                    <Label>Full Name</Label>
-                                    <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="John Doe" maxLength={100} />
+                    </div>
+
+                    <Dialog open={open} onOpenChange={setOpen}>
+                        <DialogTrigger asChild>
+                            <Button onClick={handleOpenAdd} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-500/20 transition-all duration-300">
+                                <UserPlus className="mr-2 h-4 w-4" /> Add Employee
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] glass-card border-border bg-card/90 backdrop-blur-2xl">
+                            <DialogHeader>
+                                <DialogTitle className="font-display font-black uppercase italic tracking-widest text-foreground">{editMode ? "Edit Employee" : "Add New Employee"}</DialogTitle>
+                                <DialogDescription className="text-muted-foreground font-medium">
+                                    {editMode ? "Update employee details." : "Create a new employee account."}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                                <div className="space-y-4 py-2">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
+                                        <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="John Doe" maxLength={100} className="bg-background border-border text-foreground font-bold rounded-xl" />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Mail ID (Username)</Label>
+                                        <Input
+                                            type="email"
+                                            value={form.username}
+                                            onChange={(e) => setForm({ ...form, username: e.target.value })}
+                                            placeholder="john@tensemi.com"
+                                            disabled={editMode}
+                                            className="bg-background border-border text-foreground font-bold rounded-xl disabled:opacity-50"
+                                        />
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight ml-1">This will be used for login.</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
+                                        <Input type="tel" value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="+91 9876543210" className="bg-background border-border text-foreground font-bold rounded-xl" />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Company</Label>
+                                        <Select
+                                            value={form.company}
+                                            onValueChange={(value) => setForm({ ...form, company: value })}
+                                        >
+                                            <SelectTrigger className="bg-background border-border text-foreground font-bold rounded-xl">
+                                                <SelectValue placeholder="Select company" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-popover border-border text-popover-foreground">
+                                                <SelectItem value="Vaazhai">Vaazhai (Core)</SelectItem>
+                                                <SelectItem value="Tensemi">Tensemi</SelectItem>
+                                                <SelectItem value="Aram">Aram</SelectItem>
+                                                <SelectItem value="Raphael Creatives">Raphael Creatives</SelectItem>
+                                                <SelectItem value="Kottravai">Kottravai</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Department</Label>
+                                        <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Engineering" maxLength={50} className="bg-background border-border text-foreground font-bold rounded-xl" />
+                                    </div>
+
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label>Mail ID (Username)</Label>
-                                    <Input
-                                        type="email"
-                                        value={form.username}
-                                        onChange={(e) => setForm({ ...form, username: e.target.value })}
-                                        placeholder="john@tensemi.com"
-                                        disabled={editMode}
-                                    />
-                                    <p className="text-[0.8rem] text-muted-foreground">This will be used for login.</p>
-                                </div>
+                                <DialogFooter>
+                                    <Button type="submit" disabled={submitting} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest h-12 rounded-xl transition-all duration-300">
+                                        {submitting ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            editMode ? <Edit className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />
+                                        )}
+                                        {editMode ? "Update details" : "Create Account"}
+                                    </Button>
+                                </DialogFooter>
 
-                                <div className="space-y-2">
-                                    <Label>Phone Number</Label>
-                                    <Input type="tel" value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="+91 9876543210" />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Company</Label>
-                                    <Select
-                                        value={form.company}
-                                        onValueChange={(value) => setForm({ ...form, company: value })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select company" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Tensemi">Tensemi</SelectItem>
-                                            <SelectItem value="Aram">Aram</SelectItem>
-                                            <SelectItem value="Raphael Creatives">Raphael Creatives</SelectItem>
-                                            <SelectItem value="Kottravai">Kottravai</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Department</Label>
-                                    <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Engineering" maxLength={50} />
-                                </div>
-
-                            </div>
-
-                            <DialogFooter>
-                                <Button type="submit" disabled={submitting} className="w-full">
-                                    {submitting ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        editMode ? <Edit className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />
-                                    )}
-                                    {editMode ? "Update details" : "Create Account"}
-                                </Button>
-                            </DialogFooter>
-
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-medium">All Employees</CardTitle>
-                        <div className="relative w-64">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search employees..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-8"
-                            />
-                        </div>
+            <Card className="glass-card border-border shadow-sm overflow-hidden bg-card/50 backdrop-blur-lg">
+                <CardHeader className="bg-secondary/30 border-b border-border py-6 px-8 flex flex-row items-center justify-between gap-4 flex-wrap">
+                    <CardTitle className="text-xs font-black uppercase tracking-[0.3em] text-foreground flex items-center gap-2">
+                        <Users className="h-4 w-4 text-emerald-500" />
+                        Workforce Registry
+                    </CardTitle>
+                    <div className="relative w-full sm:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search units..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 h-10 bg-background border-border text-foreground font-bold rounded-xl"
+                        />
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Full Name</TableHead>
-                                    <TableHead>Username</TableHead>
-                                    <TableHead>Company</TableHead>
-                                    <TableHead>Department</TableHead>
-                                    <TableHead>Phone Number</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Status</TableHead>
-
-                                    <TableHead className="w-[50px]"></TableHead>
+                            <TableHeader className="bg-secondary/20">
+                                <TableRow className="border-border hover:bg-transparent">
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6 pl-8">Worker Unit</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Mail Node</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Division</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Contact</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Status</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6 pr-8 text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
-                                            <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                                        <TableCell colSpan={6} className="h-64 text-center">
+                                            <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-500" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-4 animate-pulse">Syncing Unified Registry</p>
                                         </TableCell>
                                     </TableRow>
                                 ) : filteredEmployees.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
-                                            No employees found.
+                                        <TableCell colSpan={6} className="h-64 text-center">
+                                            <Users size={48} className="mx-auto text-muted-foreground opacity-20" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-4">No active records found.</p>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     filteredEmployees.map((emp) => (
-                                        <TableRow key={emp.id}>
-                                            <TableCell className="font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                        <TableRow key={emp.id} className="border-border hover:bg-secondary/10 transition-colors">
+                                            <TableCell className="py-6 pl-8">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 flex items-center justify-center text-emerald-600 font-black text-sm border border-emerald-500/20 shadow-sm">
                                                         {emp.full_name.charAt(0)}
                                                     </div>
-                                                    {emp.full_name}
+                                                    <div>
+                                                        <p className="text-sm font-black text-foreground tracking-tight uppercase leading-none">{emp.full_name}</p>
+                                                        <div className="mt-1.5">
+                                                            <Badge variant="secondary" className="gap-1 px-1.5 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-600 border-none uppercase tracking-widest">
+                                                                <img
+                                                                    src={`/${emp.company || "Vaazhai"}.png`}
+                                                                    alt=""
+                                                                    className="h-3 w-3 object-contain"
+                                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                                />
+                                                                {emp.company || "Vaazhai"}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">{emp.username}</TableCell>
+                                            <TableCell className="text-[11px] font-mono text-muted-foreground font-bold">{emp.username}</TableCell>
                                             <TableCell>
-                                                <Badge variant="secondary" className="gap-1 px-1.5 py-1">
-                                                    <img
-                                                        src={`/${emp.company || "Vaazhai"}.png`}
-                                                        alt=""
-                                                        className="h-4 w-4 object-contain"
-                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                    />
-                                                    {emp.company || "Vaazhai"}
-                                                </Badge>
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-secondary text-[10px] font-black text-muted-foreground border border-border uppercase tracking-widest">
+                                                    {emp.department || "No Dept"}
+                                                </span>
                                             </TableCell>
+                                            <TableCell className="text-[11px] font-mono font-bold text-foreground">{emp.phone_number || '-'}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{emp.department}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-sm font-mono">{emp.phone_number || '-'}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={emp.role === 'admin' ? "default" : "outline"}>
-                                                    {emp.role || 'employee'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Active</Badge>
+                                                <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-none font-black text-[9px] uppercase tracking-widest">Active</Badge>
                                             </TableCell>
 
-                                            <TableCell>
+                                            <TableCell className="text-right pr-8">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                                            <span className="sr-only">Open menu</span>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors">
                                                             <MoreVertical className="h-4 w-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleOpenEdit(emp)}>
-                                                            <Edit className="mr-2 h-4 w-4" />
-                                                            Edit
+                                                    <DropdownMenuContent align="end" className="bg-card border-border shadow-xl rounded-xl p-1">
+                                                        <DropdownMenuItem onClick={() => handleOpenEdit(emp)} className="rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 p-2.5 focus:bg-secondary">
+                                                            <Edit className="h-4 w-4 text-emerald-500" />
+                                                            Edit Profile
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleResetPassword(emp)}>
-                                                            <Key className="mr-2 h-4 w-4" />
-                                                            Reset Password
+                                                        <DropdownMenuItem onClick={() => handleResetPassword(emp)} className="rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 p-2.5 focus:bg-secondary">
+                                                            <Key className="h-4 w-4 text-blue-500" />
+                                                            Reset Key
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => confirmDelete(emp.user_id)}
-                                                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                            className="rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 p-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
                                                         >
-                                                            <Trash className="mr-2 h-4 w-4" />
-                                                            Delete
+                                                            <Trash className="h-4 w-4" />
+                                                            Decommission
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -494,40 +637,40 @@ const EmployeesPage = () => {
             </Card>
 
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="glass-card border-border bg-card/90 backdrop-blur-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                        <AlertDialogTitle className="font-display font-black uppercase text-foreground">Confirm Operational Removal?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground font-medium">
                             This action cannot be undone. This will permanently delete the employee account and remove their data from our servers.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="rounded-xl border-border bg-transparent text-foreground font-black uppercase tracking-widest hover:bg-secondary">Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
-                            className="bg-red-600 hover:bg-red-700 text-white"
+                            className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-red-600/20"
                             disabled={submitting}
                         >
-                            {submitting ? "Deleting..." : "Delete Employee"}
+                            {submitting ? "Processing..." : "Confirm Removal"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
             <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-                <AlertDialogContent>
+                <AlertDialogContent className="glass-card border-border bg-card/90 backdrop-blur-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Reset Password?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                        <AlertDialogTitle className="font-display font-black uppercase text-foreground">Reset Security Key?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground font-medium">
                             Are you sure you want to reset the password for <strong>{resetEmp?.full_name}</strong>?
                             The new password will be auto-generated based on their company and phone number.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setResetEmp(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel onClick={() => setResetEmp(null)} className="rounded-xl border-border bg-transparent text-foreground font-black uppercase tracking-widest hover:bg-secondary">Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={confirmResetPassword}
-                            className="bg-primary text-white"
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-500/20"
                             disabled={submitting}
                         >
                             {submitting ? "Resetting..." : "Confirm Reset"}

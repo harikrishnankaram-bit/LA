@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
-import { Building2, Home, Activity } from 'lucide-react';
+import { Building2, Home, Activity, Clock } from 'lucide-react';
 
 const locales = {
     'en-US': enUS,
@@ -27,36 +27,43 @@ const CustomEvent = ({ event }: any) => {
     const isAbsent = event.resource.status === 'ABSENT';
     const isHoliday = event.resource.status === 'HOLIDAY';
     const isWeekend = event.resource.status === 'WEEKEND';
+    const isLeave = event.resource.status === 'LEAVE';
 
-    let bgClass = 'bg-blue-50 border-blue-200 text-blue-700';
-    if (isPresent) bgClass = 'bg-green-50 border-green-200 text-green-700';
-    if (isLate) bgClass = 'bg-orange-50 border-orange-200 text-orange-700';
-    if (isAbsent) bgClass = 'bg-red-50 border-red-200 text-red-700';
-    if (isHoliday) bgClass = 'bg-purple-50 border-purple-200 text-purple-700';
-    if (isWeekend) bgClass = 'bg-gray-100 border-gray-300 text-gray-700';
+    // Maximum Contrast Styles - Solid Backgrounds with White Text
+    let bgClass = 'bg-blue-600 border-blue-700 text-white';
 
-    if (isHoliday || isWeekend) {
+    if (isPresent) {
+        bgClass = 'bg-emerald-600 border-emerald-700 text-white';
+    } else if (isLate) {
+        bgClass = 'bg-amber-500 border-amber-600 text-white';
+    } else if (isAbsent) {
+        bgClass = 'bg-red-600 border-red-700 text-white';
+    } else if (isHoliday) {
+        bgClass = 'bg-purple-600 border-purple-700 text-white';
+    } else if (isLeave) {
+        bgClass = 'bg-indigo-600 border-indigo-700 text-white';
+    } else if (isWeekend) {
+        bgClass = 'bg-slate-200 border-slate-300 text-slate-600 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300';
+    }
+
+    if (isHoliday || isWeekend || isLeave) {
         return (
-            <div className={`text-xs p-1 rounded border overflow-hidden ${bgClass} text-center font-semibold`}>
+            <div className={`text-[9px] p-1.5 rounded-lg border ${bgClass} text-center font-black uppercase tracking-tighter shadow-sm`}>
                 {event.resource.status}
             </div>
         );
     }
 
     return (
-        <div className={`text-xs p-1 rounded border overflow-hidden ${bgClass}`}>
-            <div className="flex items-center gap-1 font-semibold mb-0.5">
-                {event.resource.mode === 'WFO' ? <Building2 className="w-3 h-3" /> : (event.resource.mode === 'WFH' ? <Home className="w-3 h-3" /> : null)}
-                <span>{event.title}</span>
+        <div className={`text-[9px] p-2 rounded-lg border ${bgClass} shadow-md`}>
+            <div className="flex items-center gap-1.5 font-black mb-1 uppercase tracking-tighter">
+                {event.resource.mode === 'WFO' ? <Building2 className="w-3 h-3 text-white/80" /> : (event.resource.mode === 'WFH' ? <Home className="w-3 h-3 text-white/80" /> : null)}
+                <span className="text-white">{event.title}</span>
             </div>
             {event.resource.login_time && (
-                <div>
-                    Login: {format(new Date(event.resource.login_time), 'HH:mm')}
-                </div>
-            )}
-            {event.end && event.resource.logout_time && (
-                <div>
-                    Logout: {format(new Date(event.resource.logout_time), 'HH:mm')}
+                <div className="font-mono font-bold text-white/90 flex items-center gap-1 scale-[0.9] origin-left">
+                    <Clock className="w-2.5 h-2.5" />
+                    {format(new Date(event.resource.login_time), 'HH:mm')}
                 </div>
             )}
         </div>
@@ -74,34 +81,62 @@ const AttendanceCalendar = () => {
 
             const startMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
             const endMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const startDateStr = format(startMonth, 'yyyy-MM-dd');
+            const endDateStr = format(endMonth, 'yyyy-MM-dd');
 
-            const { data } = await supabase
-                .from('attendance_daily')
-                .select('*')
-                .eq('user_id', user.id)
-                .gte('date', format(startMonth, 'yyyy-MM-dd'))
-                .lte('date', format(endMonth, 'yyyy-MM-dd'));
+            const [attendanceRes, leavesRes] = await Promise.all([
+                supabase
+                    .from('attendance_daily')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .gte('date', startDateStr)
+                    .lte('date', endDateStr),
+                supabase
+                    .from('leaves')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .eq('status', 'APPROVED')
+                    .or(`start_date.lte.${endDateStr},end_date.gte.${startDateStr}`)
+            ]);
 
-            const attendanceRecords = data || [];
+            const attendanceRecords = attendanceRes.data || [];
+            const leaveRecords = leavesRes.data || [];
             const attendanceMap = new Map(attendanceRecords.map(a => [a.date, a]));
 
-            const calendarEvents = [];
+            const leaveMap = new Map();
+            leaveRecords.forEach(l => {
+                const leaveStart = new Date(l.start_date);
+                const leaveEnd = new Date(l.end_date);
+                eachDayOfInterval({ start: leaveStart, end: leaveEnd }).forEach(day => {
+                    leaveMap.set(format(day, 'yyyy-MM-dd'), l);
+                });
+            });
 
-            // Temporal Projection: Generate Sunday Holidays & Attendance
+            const calendarEvents = [];
             const daysInMonth = eachDayOfInterval({ start: startMonth, end: endMonth });
 
             for (const d of daysInMonth) {
                 const dateKey = format(d, 'yyyy-MM-dd');
-                const existing = attendanceMap.get(dateKey);
+                const existingAtt = attendanceMap.get(dateKey);
+                const existingLeave = leaveMap.get(dateKey);
 
-                if (existing) {
+                if (existingAtt) {
                     calendarEvents.push({
-                        id: existing.id,
-                        title: existing.status,
-                        start: new Date(existing.login_time || existing.date + 'T10:00:00'),
-                        end: existing.logout_time ? new Date(existing.logout_time) : new Date(existing.login_time || existing.date + 'T18:00:00'),
+                        id: existingAtt.id,
+                        title: existingAtt.status,
+                        start: new Date(existingAtt.login_time || existingAtt.date + 'T10:00:00'),
+                        end: existingAtt.logout_time ? new Date(existingAtt.logout_time) : new Date(existingAtt.login_time || existingAtt.date + 'T18:00:00'),
                         allDay: false,
-                        resource: existing,
+                        resource: existingAtt,
+                    });
+                } else if (existingLeave) {
+                    calendarEvents.push({
+                        id: `leave-${existingLeave.id}-${dateKey}`,
+                        title: 'LEAVE',
+                        start: d,
+                        end: d,
+                        allDay: true,
+                        resource: { status: 'LEAVE', date: dateKey },
                     });
                 } else if (getDay(d) === 0) { // Sunday Detection
                     calendarEvents.push({
@@ -121,28 +156,30 @@ const AttendanceCalendar = () => {
     });
 
     return (
-        <Card className="h-[600px] w-full border-none bg-transparent">
-            <CardHeader className="px-0">
-                <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-slate-400">
+        <Card className="h-full w-full border-none bg-transparent shadow-none">
+            <CardHeader className="px-0 pt-0 pb-6">
+                <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-foreground/50">
                     <Activity className="h-4 w-4 text-emerald-500" />
-                    Attendance Matrix
+                    Workforce Activity Ledger
                 </CardTitle>
             </CardHeader>
             <CardContent className="h-[500px] p-0">
-                <Calendar
-                    localizer={localizer}
-                    events={events}
-                    startAccessor="start"
-                    endAccessor="end"
-                    style={{ height: '100%' }}
-                    views={[Views.MONTH]}
-                    defaultView={Views.MONTH}
-                    onNavigate={(date) => setCurrentDate(date)}
-                    date={currentDate}
-                    components={{
-                        event: CustomEvent
-                    }}
-                />
+                <div className="h-full calendar-container">
+                    <Calendar
+                        localizer={localizer}
+                        events={events}
+                        startAccessor="start"
+                        endAccessor="end"
+                        style={{ height: '100%' }}
+                        views={[Views.MONTH]}
+                        defaultView={Views.MONTH}
+                        onNavigate={(date) => setCurrentDate(date)}
+                        date={currentDate}
+                        components={{
+                            event: CustomEvent
+                        }}
+                    />
+                </div>
             </CardContent>
         </Card>
     );

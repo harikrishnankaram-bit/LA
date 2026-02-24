@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const EmployeeDashboard = () => {
   const { user } = useAuth();
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
+  const [hasApprovedLeave, setHasApprovedLeave] = useState(false);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +23,17 @@ const EmployeeDashboard = () => {
     const localToday = format(new Date(), "yyyy-MM-dd");
     const start = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
     const end = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+    // Check for approved leave today
+    const { data: leaves } = await supabase
+      .from("leaves")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "APPROVED")
+      .lte("start_date", localToday)
+      .gte("end_date", localToday);
+
+    setHasApprovedLeave((leaves || []).length > 0);
 
     const { data: latestRecords } = await supabase
       .from("attendance_daily")
@@ -75,6 +87,10 @@ const EmployeeDashboard = () => {
 
   const handleLogin = async (mode: "WFO" | "WFH") => {
     try {
+      if (hasApprovedLeave) {
+        toast.error("Protocol Inactive: Operations are suspended during approved leave.");
+        return;
+      }
       setLoading(true);
       // @ts-ignore
       const { error } = await supabase.rpc("mark_login", { mode_input: mode });
@@ -134,95 +150,104 @@ const EmployeeDashboard = () => {
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="page-header text-3xl flex items-center gap-2 text-foreground italic font-black uppercase tracking-tighter">
-            Welcome Back <Sparkles className="h-6 w-6 text-yellow-500 animate-pulse" />
+          <h1 className="page-header text-4xl flex items-center gap-2 text-foreground italic font-black uppercase tracking-tighter">
+            Welcome <span className="text-emerald-500">Back</span> <Sparkles className="h-6 w-6 text-emerald-500 animate-pulse" />
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Here's your productivity overview for today.</p>
+          <p className="text-muted-foreground mt-1 text-[10px] font-black uppercase tracking-[0.4em] ml-1">Operational Productivity Overview</p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={fetchData}
           disabled={loading}
-          className="rounded-full px-4 hover-3d border-emerald-500/50 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+          className="rounded-xl px-6 h-11 border-emerald-500/30 bg-background/50 backdrop-blur-md text-emerald-600 font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all"
         >
-          Refresh Real-time Data
+          Refresh Data
         </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <motion.div variants={itemVariants}>
-          <Card className="hover-3d border-border shadow-sm bg-gradient-to-br from-indigo-500/5 to-transparent">
+          <Card className="glass-card border-border shadow-sm bg-card/50 backdrop-blur-lg">
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
-                <CalendarDays className="h-6 w-6 text-indigo-600" />
+              <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                <CalendarDays className="h-6 w-6 text-blue-500" />
               </div>
               <div>
-                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Date</p>
-                <h3 className="text-xl font-black font-display text-foreground">{format(new Date(), "dd MMM, EEEE")}</h3>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Calendar Slot</p>
+                <h3 className="text-xl font-black font-display text-foreground italic uppercase tracking-tighter">{format(new Date(), "dd MMM, EEEE")}</h3>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className={`hover-3d border-border shadow-sm transition-colors ${todayAttendance ? 'bg-emerald-500/10' : 'bg-secondary/30'}`}>
+          <Card className={`glass-card border-border shadow-sm transition-all duration-300 ${hasApprovedLeave ? 'bg-blue-500/10 border-blue-500/20' : todayAttendance ? 'bg-emerald-500/5' : 'bg-card/30'}`}>
             <CardContent className="p-6 flex items-center gap-4">
-              <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${todayAttendance ? 'bg-emerald-500/20 text-emerald-600' : 'bg-muted/20 text-muted-foreground'}`}>
+              <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-colors ${hasApprovedLeave ? 'bg-blue-500/20 text-blue-500' : todayAttendance ? 'bg-emerald-500/20 text-emerald-500' : 'bg-secondary/50 text-muted-foreground'}`}>
                 <CheckCircle className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Live Status</p>
-                <h3 className="text-xl font-black font-display truncate text-foreground">{todayAttendance ? (todayAttendance.status) : "Ready to Start"}</h3>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Live Status</p>
+                <h3 className="text-xl font-black font-display truncate text-foreground italic uppercase tracking-tighter">
+                  {hasApprovedLeave ? "ON LEAVE" : todayAttendance ? todayAttendance.status : "Ready"}
+                </h3>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="overflow-hidden border-none shadow-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white relative">
+          <Card className="overflow-hidden border-none shadow-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white relative">
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <Clock size={80} strokeWidth={1} />
             </div>
             <CardContent className="p-0">
-              <div className="px-6 py-3 border-b border-white/10 flex justify-between items-center bg-black/5">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Quick Punch Portal</span>
-                {todayAttendance?.login_time && <span className="text-[10px] font-mono bg-white/20 px-2 py-0.5 rounded-full">Started: {format(new Date(todayAttendance.login_time), "hh:mm a")}</span>}
+              <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-black/10">
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Quick Punch Portal</span>
+                {todayAttendance?.login_time && <span className="text-[10px] font-mono bg-white/20 px-3 py-1 rounded-full font-bold">STARTED: {format(new Date(todayAttendance.login_time), "HH:mm")}</span>}
               </div>
               <div className="p-6">
                 <AnimatePresence mode="wait">
                   {loading ? (
-                    <div className="h-12 w-full flex items-center justify-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-white animate-bounce" />
-                      <div className="h-2 w-2 rounded-full bg-white animate-bounce [animation-delay:0.2s]" />
-                      <div className="h-2 w-2 rounded-full bg-white animate-bounce [animation-delay:0.4s]" />
+                    <div className="h-12 w-full flex items-center justify-center">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     </div>
+                  ) : hasApprovedLeave ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center py-4 px-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm"
+                    >
+                      <p className="text-xl font-black italic tracking-tighter uppercase shrink-0">System on Standby</p>
+                      <p className="text-[10px] opacity-80 font-black uppercase tracking-widest mt-1">Approved Leave Active for Today</p>
+                    </motion.div>
                   ) : !todayAttendance ? (
                     <div className="flex gap-4">
-                      <Button onClick={() => handleLogin("WFO")} className="flex-1 h-14 bg-white text-emerald-700 hover:bg-emerald-50 font-black rounded-2xl shadow-lg" size="lg">
-                        <MapPin className="mr-2 h-5 w-5" /> Office (WFO)
+                      <Button onClick={() => handleLogin("WFO")} className="flex-1 h-16 bg-white text-emerald-700 hover:bg-emerald-50 font-black rounded-2xl shadow-xl uppercase tracking-widest" size="lg">
+                        <MapPin className="mr-2 h-5 w-5" /> Office
                       </Button>
-                      <Button onClick={() => handleLogin("WFH")} variant="outline" className="flex-1 h-14 bg-white/10 border-white/20 hover:bg-white/20 text-white font-black rounded-2xl sm:block hidden" size="lg">
-                        <Monitor className="mr-2 h-5 w-5" /> Remote (WFH)
+                      <Button onClick={() => handleLogin("WFH")} variant="outline" className="flex-1 h-16 bg-white/10 border-white/20 hover:bg-white/20 text-white font-black rounded-2xl sm:block hidden uppercase tracking-widest" size="lg">
+                        <Monitor className="mr-2 h-5 w-5" /> Remote
                       </Button>
                     </div>
                   ) : !todayAttendance.logout_time ? (
                     <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
+                      initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                     >
-                      <Button onClick={handleLogout} variant="destructive" className="w-full h-14 font-black text-lg bg-orange-500 hover:bg-orange-600 rounded-2xl shadow-[0_8px_0_rgba(194,65,12,0.4)] transition-all" size="lg">
-                        <LogOut className="mr-3 h-6 w-6" /> COMPLETE SHIFT
+                      <Button onClick={handleLogout} className="w-full h-16 font-black text-lg bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-xl uppercase tracking-widest border-none transition-all" size="lg">
+                        <LogOut className="mr-3 h-6 w-6" /> Complete Shift
                       </Button>
                     </motion.div>
                   ) : (
                     <motion.div
                       initial={{ y: 10, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      className="text-center py-2 px-4 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm"
+                      className="text-center py-4 px-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm"
                     >
-                      <p className="text-xl font-black">🌟 YOU'RE ALL SET!</p>
-                      <p className="text-xs opacity-80 font-medium">Logged out at {format(new Date(todayAttendance.logout_time), "hh:mm a")}</p>
+                      <p className="text-xl font-black italic tracking-tighter uppercase shrink-0">Protocol Optimized</p>
+                      <p className="text-[10px] opacity-80 font-black uppercase tracking-widest mt-1">Session Terminated at {format(new Date(todayAttendance.logout_time), "HH:mm")}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -234,12 +259,12 @@ const EmployeeDashboard = () => {
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="border-border shadow-sm hover-3d h-full bg-card/50 backdrop-blur-lg">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg font-black tracking-tight uppercase opacity-50 text-foreground">Impact Analytics</CardTitle>
+          <Card className="glass-card border-border shadow-sm bg-card/50 backdrop-blur-lg h-full">
+            <CardHeader className="flex flex-row items-center justify-between pb-6 border-b border-border/50">
+              <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-muted-foreground">Workforce Activity Analytics</CardTitle>
               <Zap className="h-5 w-5 text-emerald-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-8">
               <div className="h-[280px] w-full flex items-center justify-center">
                 {weeklyData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -249,23 +274,23 @@ const EmployeeDashboard = () => {
                         cx="50%"
                         cy="50%"
                         innerRadius={80}
-                        outerRadius={100}
-                        paddingAngle={8}
+                        outerRadius={110}
+                        paddingAngle={10}
                         dataKey="value"
                         stroke="none"
                       >
                         {weeklyData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ borderRadius: '16px', border: 'none', background: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                        contentStyle={{ borderRadius: '16px', border: 'none', background: 'var(--popover)', color: 'var(--popover-foreground)', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', fontWeight: 'bold' }}
                       />
-                      <Legend verticalAlign="bottom" height={36} />
+                      <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-4">{value}</span>} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-center space-y-2 opacity-50">
-                    <Zap className="h-10 w-10 mx-auto text-muted-foreground" strokeWidth={1} />
-                    <p className="text-sm font-medium text-muted-foreground">No activity data for this cycle.</p>
+                  <div className="text-center space-y-4 opacity-50">
+                    <Zap className="h-16 w-16 mx-auto text-muted-foreground/20" strokeWidth={1} />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Historical activity empty</p>
                   </div>
                 )}
               </div>
@@ -274,47 +299,50 @@ const EmployeeDashboard = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="border-border shadow-sm bg-gradient-to-tr from-slate-100 to-white dark:from-slate-900 dark:to-slate-800 text-foreground h-full relative overflow-hidden">
-            <div className="absolute -bottom-10 -right-10 opacity-5">
-              <Sparkles size={200} className="text-primary" />
+          <Card className="glass-card border-border shadow-2xl bg-card/30 backdrop-blur-lg h-full relative overflow-hidden">
+            <div className="absolute -bottom-20 -right-20 opacity-5">
+              <Sparkles size={300} className="text-emerald-500" />
             </div>
-            <CardHeader>
-              <CardTitle className="text-lg font-black tracking-tight uppercase opacity-50">Performance KPIs</CardTitle>
+            <CardHeader className="pb-6 border-b border-border/50">
+              <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-muted-foreground">Efficiency Metrics (KPI)</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 pt-4 relative z-10">
+            <CardContent className="space-y-8 pt-8 relative z-10">
               <div className="flex justify-between items-end group">
                 <div>
-                  <span className="text-xs font-black text-muted-foreground group-hover:text-emerald-600 transition-colors uppercase tracking-widest">DAYS PRESENT</span>
-                  <p className="text-4xl font-black font-display text-foreground">{weeklyData.find(d => d.name === 'Present')?.value || 0}</p>
+                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-emerald-500 transition-colors uppercase tracking-widest">TOTAL PRESENT</span>
+                  <p className="text-5xl font-black font-display text-foreground italic tracking-tighter">{weeklyData.find(d => d.name === 'Present')?.value || 0}</p>
                 </div>
-                <div className="h-12 w-px bg-border" />
+                <div className="h-12 w-px bg-border/50" />
               </div>
 
               <div className="flex justify-between items-end group">
                 <div>
-                  <span className="text-xs font-black text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-widest">LATE ARRIVALS</span>
-                  <p className="text-4xl font-black font-display text-amber-500">{weeklyData.find(d => d.name === 'Late')?.value || 0}</p>
+                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-widest">TEMPORAL DRIFT (LATE)</span>
+                  <p className="text-5xl font-black font-display text-amber-500 italic tracking-tighter">{weeklyData.find(d => d.name === 'Late')?.value || 0}</p>
                 </div>
-                <div className="h-12 w-px bg-border" />
+                <div className="h-12 w-px bg-border/50" />
               </div>
 
               <div className="flex justify-between items-end group">
                 <div>
-                  <span className="text-xs font-black text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-widest">HYBRID MODE (WFH)</span>
-                  <p className="text-4xl font-black font-display text-blue-500">{weeklyData.find(d => d.name === 'WFH')?.value || 0}</p>
+                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-widest">REMOTE DEPLOYMENTS</span>
+                  <p className="text-5xl font-black font-display text-blue-500 italic tracking-tighter">{weeklyData.find(d => d.name === 'WFH')?.value || 0}</p>
                 </div>
               </div>
 
-              <div className="pt-4">
-                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+              <div className="pt-6">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-[10px] font-black text-muted-foreground tracking-widest uppercase">Productivity Index</p>
+                  <p className="text-[10px] font-black text-emerald-500 uppercase">84% Optimal</p>
+                </div>
+                <div className="w-full bg-secondary h-3 rounded-full overflow-hidden border border-border/50">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: '65%' }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                    className="bg-emerald-500 h-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                    animate={{ width: '84%' }}
+                    transition={{ duration: 1.5, ease: 'easeOut' }}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                   />
                 </div>
-                <p className="text-[10px] font-black mt-2 text-muted-foreground tracking-tighter uppercase">MONTHLY PRODUCTIVITY INDEX: 84%</p>
               </div>
             </CardContent>
           </Card>

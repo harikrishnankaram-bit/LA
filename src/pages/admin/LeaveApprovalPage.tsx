@@ -1,11 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useState } from "react";
+import { CheckCircle, XCircle, Clock, CalendarDays, User, History, Send, ShieldAlert, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const LeaveApprovalPage = () => {
   const [comment, setComment] = useState<Record<string, string>>({});
@@ -71,66 +73,172 @@ const LeaveApprovalPage = () => {
 
       await supabase.from("notifications").insert({
         user_id: userId,
-        message: `Your leave has been ${action === "APPROVED" ? "Approved" : "Rejected"}`,
+        message: `PROTOCOL ALERT: Your leave request has been ${action === "APPROVED" ? "AUTHORIZED" : "DENIED"} by the controller.`,
       });
 
-      toast.success(`Leave ${action}`);
+      toast.success(`Protocol ${action}`);
       refetch();
-      window.location.reload();
     } catch (err: any) {
-      toast.error(err.message || "Failed to update");
+      toast.error(err.message || "Operation failed");
+    }
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+        return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase border border-emerald-500/20">
+          <CheckCircle size={12} /> Authorized
+        </div>;
+      case "REJECTED":
+        return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 text-red-600 text-[10px] font-black uppercase border border-red-500/20">
+          <XCircle size={12} /> Denied
+        </div>;
+      default:
+        return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase border border-amber-500/20">
+          <Clock size={12} /> Evaluating
+        </div>;
     }
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
+      <div className="flex flex-col gap-1">
+        <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
+          Leave <span className="text-blue-500">Approvals</span>
+        </h1>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Workforce Absence Management Protocol</p>
+      </div>
+
       <section>
-        <h1 className="page-header mb-6">Pending Requests</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <ShieldAlert className="text-amber-500 h-5 w-5" />
+          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-foreground/70">Pending Requests Queue</h2>
+        </div>
+
         {pendingLeaves.length === 0 ? (
-          <Card><CardContent className="py-8 text-center text-muted-foreground">No pending requests</CardContent></Card>
+          <Card className="glass-card border-border bg-card/30 backdrop-blur-lg border-dashed">
+            <CardContent className="py-20 text-center flex flex-col items-center gap-4 opacity-50">
+              <Sparkles size={48} className="text-blue-500" />
+              <p className="text-xs font-black uppercase tracking-widest text-foreground">Operational Queue Clear</p>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-4">
-            {pendingLeaves.map((leave: any) => (
-              <Card key={leave.id}>
-                <CardContent className="p-5">
-                  <div className="flex flex-col sm:flex-row justify-between gap-4">
-                    <div className="space-y-1">
-                      <p className="font-bold">{leave.profiles?.full_name || "Unknown Employee"}</p>
-                      <p className="text-sm text-muted-foreground">{leave.leave_type}: {format(new Date(leave.start_date), "dd MMM")} - {format(new Date(leave.end_date), "dd MMM")}</p>
-                      <p className="text-sm italic">"{leave.reason}"</p>
-                    </div>
-                    <div className="flex flex-col gap-2 min-w-48">
-                      <Textarea placeholder="Comment..." value={comment[leave.id] || ""} onChange={(e) => setComment({ ...comment, [leave.id]: e.target.value })} className="h-16 text-sm" />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleAction(leave.id, leave.user_id, "APPROVED")} className="flex-1">Approve</Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleAction(leave.id, leave.user_id, "REJECTED")} className="flex-1">Reject</Button>
+          <div className="grid gap-6">
+            <AnimatePresence>
+              {pendingLeaves.map((leave: any) => (
+                <motion.div
+                  key={leave.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                >
+                  <Card className="glass-card border-border overflow-hidden shadow-xl bg-card/50 backdrop-blur-xl">
+                    <CardContent className="p-0">
+                      <div className="flex flex-col lg:flex-row">
+                        <div className="p-8 flex-1 border-b lg:border-b-0 lg:border-r border-border/50">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20 shadow-inner">
+                              <User size={24} />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-black text-foreground italic uppercase tracking-tighter leading-none mb-1">
+                                {leave.profiles?.full_name || "Authorized Personnel"}
+                              </h3>
+                              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest bg-secondary/50 px-2 py-0.5 rounded-md inline-block">
+                                {leave.profiles?.department || "General Unit"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid sm:grid-cols-2 gap-6 mb-8">
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Classification</p>
+                              <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                                {leave.leave_type}
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Temporal Range</p>
+                              <p className="text-xs font-mono font-bold text-foreground">
+                                {format(new Date(leave.start_date), "dd MMM, yyyy")} <span className="text-muted-foreground mx-1">→</span> {format(new Date(leave.end_date), "dd MMM, yyyy")}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="bg-secondary/30 p-5 rounded-2xl border border-border/50 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                              <Send size={40} className="-rotate-12" />
+                            </div>
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Justification Log</p>
+                            <p className="text-sm font-medium italic text-foreground leading-relaxed">"{leave.reason}"</p>
+                          </div>
+                        </div>
+
+                        <div className="p-8 w-full lg:w-[350px] bg-secondary/10 flex flex-col justify-between gap-6">
+                          <div className="space-y-2">
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Controller Dispatch</p>
+                            <Textarea
+                              placeholder="Synchronize comments..."
+                              value={comment[leave.id] || ""}
+                              onChange={(e) => setComment({ ...comment, [leave.id]: e.target.value })}
+                              className="h-28 bg-background border-border rounded-xl text-sm font-medium focus:ring-blue-500/50 resize-none"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <Button
+                              onClick={() => handleAction(leave.id, leave.user_id, "APPROVED")}
+                              className="h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl shadow-lg shadow-emerald-500/10 uppercase text-[11px] tracking-widest border-none"
+                            >
+                              Authorize
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleAction(leave.id, leave.user_id, "REJECTED")}
+                              className="h-12 border-red-500/30 text-red-600 font-black rounded-xl hover:bg-red-500 hover:text-white uppercase text-[11px] tracking-widest transition-all"
+                            >
+                              Deny
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </section>
 
       <section>
-        <h2 className="text-xl font-bold font-display mb-4">Resolved History</h2>
-        <Card>
+        <div className="flex items-center gap-3 mb-6">
+          <History className="text-blue-500 h-5 w-5" />
+          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-foreground/70">Resolved Protocol Archive</h2>
+        </div>
+        <Card className="glass-card border-border shadow-2xl bg-card/30 backdrop-blur-lg overflow-hidden">
           <CardContent className="p-0">
-            <div className="divide-y">
+            <div className="divide-y divide-border/50">
               {resolvedLeaves.length === 0 ? (
-                <p className="p-8 text-center text-muted-foreground text-sm">No history found</p>
+                <div className="py-20 text-center flex flex-col items-center gap-4 opacity-50">
+                  <CalendarDays size={40} className="text-muted-foreground" />
+                  <p className="text-xs font-black uppercase tracking-widest text-foreground">No resolution logs found</p>
+                </div>
               ) : (
                 resolvedLeaves.map((leave: any) => (
-                  <div key={leave.id} className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-sm">{leave.profiles?.full_name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground">{leave.leave_type} • {format(new Date(leave.start_date), "dd MMM")} - {format(new Date(leave.end_date), "dd MMM")}</p>
+                  <div key={leave.id} className="p-6 flex items-center justify-between hover:bg-secondary/20 transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-xl bg-background border border-border flex items-center justify-center text-muted-foreground group-hover:border-blue-500/50 transition-colors">
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <p className="font-black text-sm text-foreground uppercase tracking-tight italic">{leave.profiles?.full_name || "Unknown"}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                          {leave.leave_type} <span className="mx-1 opacity-30">•</span> {format(new Date(leave.start_date), "dd MMM")} - {format(new Date(leave.end_date), "dd MMM")}
+                        </p>
+                      </div>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${leave.status === "APPROVED" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                      {leave.status}
-                    </span>
+                    {statusBadge(leave.status)}
                   </div>
                 ))
               )}

@@ -5,9 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileBarChart, Download } from "lucide-react";
+import { FileBarChart, Download, Users, Briefcase, Calendar, Zap, Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, getDaysInMonth, startOfMonth, endOfMonth } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 
 const months = [
   "January", "February", "March", "April", "May", "June",
@@ -63,9 +64,7 @@ const AdminMonthlyReports = () => {
 
   const presentDays = attendance.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
   const lateDays = attendance.filter((a: any) => a.status === "LATE").length;
-  // Absent is when status is ABSENT but NOT on leave (mode != LEAVE)
   const absentDays = attendance.filter((a: any) => a.status === "ABSENT" && a.mode !== "LEAVE").length;
-  // Leave is when mode is LEAVE (status should be ABSENT implicitly, but mode is the key)
   const leaveDays = attendance.filter((a: any) => a.mode === "LEAVE").length;
 
   const totalWorked = attendance.reduce((sum: number, a: any) => {
@@ -101,136 +100,172 @@ const AdminMonthlyReports = () => {
     a.click();
   };
 
-  return (
-    <div>
-      <h1 className="page-header mb-6">Monthly Reports</h1>
+  const getStatusStyle = (status: string, mode: string) => {
+    if (mode === "LEAVE") return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+    if (status === "PRESENT") return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+    if (status === "LATE") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+    return "bg-red-500/10 text-red-600 border-red-500/20";
+  };
 
-      <div className="mb-6 flex flex-wrap gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Company Filter</Label>
-          <Select value={selectedCompany} onValueChange={(val) => { setSelectedCompany(val); setSelectedEmployee("all"); }}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="All Companies" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Companies</SelectItem>
-              <SelectItem value="Tensemi">Tensemi</SelectItem>
-              <SelectItem value="Aram">Aram</SelectItem>
-              <SelectItem value="Raphael Creatives">Raphael Creatives</SelectItem>
-              <SelectItem value="Kottravai">Kottravai</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Employee</Label>
-          <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-            <SelectTrigger className="w-52"><SelectValue placeholder="All Employees" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Employees</SelectItem>
-              {filteredEmployees.map((e: any) => (
-                <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Month</Label>
-          <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {months.map((m, i) => (
-                <SelectItem key={i} value={String(i)}>{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {attendance.length > 0 && (
-          <div className="flex items-end">
-            <Button variant="outline" size="sm" onClick={downloadCSV}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />Export CSV
-            </Button>
-          </div>
-        )}
+  return (
+    <div className="space-y-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
+          Monthly <span className="text-blue-500">Reports</span>
+        </h1>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Workforce Performance Analytics</p>
       </div>
 
-      {attendance.length > 0 && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-7 mb-6">
-            {[
-              { label: "Total Days", value: totalDays },
-              { label: "Present", value: presentDays },
-              { label: "Late", value: lateDays },
-              { label: "Absent", value: absentDays },
-              { label: "Leave", value: leaveDays },
-              { label: "Total Hours", value: totalWorked.toFixed(1) },
-              { label: "Avg Hrs/Day", value: avgHours },
-            ].map((s) => (
-              <Card key={s.label} className="stat-card">
-                <CardContent className="p-0 text-center">
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                  <p className="text-xl font-bold font-display">{s.value}</p>
-                </CardContent>
-              </Card>
-            ))}
+      <Card className="glass-card border-border shadow-2xl bg-card/50 backdrop-blur-xl overflow-visible">
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Company Filter</Label>
+              <Select value={selectedCompany} onValueChange={(val) => { setSelectedCompany(val); setSelectedEmployee("all"); }}>
+                <SelectTrigger className="h-12 bg-background border-border rounded-xl text-foreground font-bold focus:ring-blue-500/50">
+                  <SelectValue placeholder="All Companies" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="all" className="font-bold">All Companies</SelectItem>
+                  <SelectItem value="Tensemi" className="font-bold">Tensemi</SelectItem>
+                  <SelectItem value="Aram" className="font-bold">Aram</SelectItem>
+                  <SelectItem value="Raphael Creatives" className="font-bold">Raphael Creatives</SelectItem>
+                  <SelectItem value="Kottravai" className="font-bold">Kottravai</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Employee</Label>
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger className="h-12 bg-background border-border rounded-xl text-foreground font-bold focus:ring-blue-500/50">
+                  <SelectValue placeholder="All Employees" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="all" className="font-bold">All Employees</SelectItem>
+                  {filteredEmployees.map((e: any) => (
+                    <SelectItem key={e.user_id} value={e.user_id} className="font-bold">{e.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Report Month</Label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="h-12 bg-background border-border rounded-xl text-foreground font-bold focus:ring-blue-500/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {months.map((m, i) => (
+                    <SelectItem key={i} value={String(i)} className="font-bold">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Button
+                onClick={downloadCSV}
+                disabled={attendance.length === 0}
+                className="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase text-[11px] tracking-widest shadow-lg shadow-emerald-500/10 border-none transition-all"
+              >
+                <Download className="mr-2 h-4 w-4" /> Export Report (CSV)
+              </Button>
+            </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-display text-lg flex items-center gap-2">
-                <FileBarChart className="h-5 w-5 text-primary" />Daily Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Login Time</TableHead>
-                    <TableHead>Logout Time</TableHead>
-                    <TableHead>Hours</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Mode</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendance.map((a: any) => {
-                    const emp = employees.find((e: any) => e.user_id === a.user_id);
-                    const cls = a.status === "PRESENT" ? "badge-present" : a.status === "LATE" ? "badge-half-day" : a.mode === "LEAVE" ? "badge-on-leave" : "badge-absent";
-                    let hours = 0;
-                    if (a.login_time && a.logout_time) {
-                      hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
-                    }
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell className="font-medium text-sm">{emp?.full_name || "Unknown"}</TableCell>
-                        <TableCell className="text-sm">{emp?.company || "-"}</TableCell>
-                        <TableCell className="text-sm">{format(new Date(a.date), "dd MMM")}</TableCell>
-                        <TableCell className="text-sm">{a.login_time ? format(new Date(a.login_time), "hh:mm a") : "—"}</TableCell>
-                        <TableCell className="text-sm">{a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : "—"}</TableCell>
-                        <TableCell className="text-sm">{hours > 0 ? hours.toFixed(1) : 0}</TableCell>
-                        <TableCell>
-                          <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-                            {a.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm">{a.mode || "-"}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </>
-      )}
+      <AnimatePresence mode="wait">
+        {attendance.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-8"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              {[
+                { label: "Cycle Days", value: totalDays, icon: Calendar, color: "text-blue-500" },
+                { label: "Present", value: presentDays, icon: Users, color: "text-emerald-500" },
+                { label: "Late", value: lateDays, icon: Zap, color: "text-amber-500" },
+                { label: "Absent", value: absentDays, icon: Activity, color: "text-red-500" },
+                { label: "Leave", value: leaveDays, icon: Briefcase, color: "text-purple-500" },
+                { label: "Work Hours", value: totalWorked.toFixed(1), icon: Zap, color: "text-indigo-500" },
+                { label: "Avg/Day", value: avgHours, icon: Activity, color: "text-teal-500" },
+              ].map((s) => (
+                <Card key={s.label} className="glass-card border-border shadow-sm bg-card/30 backdrop-blur-md overflow-hidden group">
+                  <CardContent className="p-4 flex flex-col items-center justify-center gap-2 group-hover:scale-105 transition-transform">
+                    <s.icon className={`${s.color} h-4 w-4 opacity-50`} />
+                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">{s.label}</p>
+                    <p className="text-xl font-black text-foreground italic uppercase tracking-tighter">{s.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-      {attendance.length === 0 && !isLoading && (
-        <Card className="stat-card">
-          <CardContent className="p-0 text-center py-8">
-            <p className="text-muted-foreground">No records found for selected employee and month</p>
-          </CardContent>
-        </Card>
-      )}
+            <Card className="glass-card border-border shadow-2xl bg-card/50 backdrop-blur-xl overflow-hidden">
+              <CardHeader className="bg-secondary/30 border-b border-border/50 px-8 py-6">
+                <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-foreground flex items-center gap-3">
+                  <FileBarChart className="h-5 w-5 text-blue-500" />
+                  Chronological Workforce Log
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/20 hover:bg-secondary/20 h-16 border-b border-border/50">
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-8">Worker</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Unit</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Date</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">In</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Out</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Duration</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pr-8">Mode</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attendance.map((a: any) => {
+                      const emp = employees.find((e: any) => e.user_id === a.user_id);
+                      let hours = 0;
+                      if (a.login_time && a.logout_time) {
+                        hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
+                      }
+                      return (
+                        <TableRow key={a.id} className="h-16 hover:bg-secondary/10 border-b border-border/30 transition-colors">
+                          <TableCell className="font-black text-sm text-foreground uppercase italic tracking-tighter pl-8">{emp?.full_name || "Unknown"}</TableCell>
+                          <TableCell className="text-[10px] font-bold text-muted-foreground uppercase">{emp?.company || "-"}</TableCell>
+                          <TableCell className="text-[10px] font-mono font-bold text-muted-foreground uppercase">{format(new Date(a.date), "dd MMM")}</TableCell>
+                          <TableCell className="text-[10px] font-mono font-bold text-foreground">{a.login_time ? format(new Date(a.login_time), "HH:mm") : "—"}</TableCell>
+                          <TableCell className="text-[10px] font-mono font-bold text-foreground">{a.logout_time ? format(new Date(a.logout_time), "HH:mm") : "—"}</TableCell>
+                          <TableCell className="text-[10px] font-mono font-bold text-blue-500">{hours > 0 ? hours.toFixed(1) + "H" : "—"}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shrink-0 ${getStatusStyle(a.status, a.mode)}`}>
+                              {a.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-[10px] font-black uppercase text-muted-foreground pr-8">{a.mode || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ) : !isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <Card className="glass-card border-border bg-card/30 backdrop-blur-lg border-dashed">
+              <CardContent className="py-24 text-center flex flex-col items-center gap-4 opacity-30">
+                <FileBarChart size={48} className="text-muted-foreground" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No records detected for selected parameters</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { FileBarChart } from "lucide-react";
+import { FileBarChart, Calendar, Zap, Activity, Briefcase, Users, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, getDaysInMonth, startOfMonth, endOfMonth } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { motion, AnimatePresence } from "framer-motion";
 
 const months = [
   "January", "February", "March", "April", "May", "June",
@@ -17,17 +18,15 @@ const months = [
 const EmployeeMonthlyReport = () => {
   const { user } = useAuth();
   const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
   const [month, setMonth] = useState(String(currentMonth));
-  const [year] = useState(String(currentYear));
 
   const selectedMonth = parseInt(month);
-  const selectedYear = parseInt(year);
+  const selectedYear = new Date().getFullYear();
   const startDate = format(startOfMonth(new Date(selectedYear, selectedMonth)), "yyyy-MM-dd");
   const endDate = format(endOfMonth(new Date(selectedYear, selectedMonth)), "yyyy-MM-dd");
   const totalDays = getDaysInMonth(new Date(selectedYear, selectedMonth));
 
-  const { data: attendanceData = [] } = useQuery({
+  const { data: attendanceData = [], isLoading } = useQuery({
     queryKey: ["my-monthly-report", user?.id, startDate, endDate],
     queryFn: async () => {
       const { data } = await supabase
@@ -56,89 +55,120 @@ const EmployeeMonthlyReport = () => {
     return sum;
   }, 0);
 
-  return (
-    <div>
-      <h1 className="page-header mb-6">My Monthly Report</h1>
+  const getStatusStyle = (status: string, mode: string) => {
+    if (mode === "LEAVE") return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+    if (status === "PRESENT") return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+    if (status === "LATE") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+    return "bg-red-500/10 text-red-600 border-red-500/20";
+  };
 
-      <div className="mb-6 flex gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Month</Label>
-          <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {months.map((m, i) => (
-                <SelectItem key={i} value={String(i)}>{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+  return (
+    <div className="space-y-10 pb-20">
+      <div className="flex flex-col gap-1">
+        <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
+          Chronometer <span className="text-emerald-500">Report</span>
+        </h1>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Personal Cycle Analytics</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6 mb-6">
+      <Card className="glass-card border-border shadow-2xl bg-card/50 backdrop-blur-xl overflow-visible">
+        <CardContent className="p-8">
+          <div className="flex flex-col sm:flex-row items-end gap-6">
+            <div className="space-y-2 flex-1 max-w-xs">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Period (Month)</Label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="h-14 bg-background border-border rounded-xl text-foreground font-bold focus:ring-emerald-500/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {months.map((m, i) => (
+                    <SelectItem key={i} value={String(i)} className="font-bold">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 text-right sm:text-left">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Active Cycle</p>
+              <p className="text-2xl font-black italic uppercase italic text-foreground">{months[selectedMonth]} {selectedYear}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
-          { label: "Total Days", value: totalDays },
-          { label: "Present", value: presentDays },
-          { label: "Late", value: lateDays },
-          { label: "Absent", value: absentDays },
-          { label: "On Leave", value: leaveDays },
-          { label: "Total Hours", value: totalWorked.toFixed(1) },
+          { label: "Cycle Days", value: totalDays, icon: Calendar, color: "text-blue-500" },
+          { label: "Authorized", value: presentDays, icon: Users, color: "text-emerald-500" },
+          { label: "Drifts (Late)", value: lateDays, icon: Zap, color: "text-amber-500" },
+          { label: "Absences", value: absentDays, icon: Activity, color: "text-red-500" },
+          { label: "Leave Days", value: leaveDays, icon: Briefcase, color: "text-purple-500" },
+          { label: "Accrued Hours", value: totalWorked.toFixed(1), icon: Clock, color: "text-indigo-500" },
         ].map((s) => (
-          <Card key={s.label} className="stat-card">
-            <CardContent className="p-0 text-center">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="text-2xl font-bold font-display">{s.value}</p>
+          <Card key={s.label} className="glass-card border-border shadow-sm bg-card/30 backdrop-blur-md overflow-hidden group">
+            <CardContent className="p-4 flex flex-col items-center justify-center gap-2 group-hover:scale-105 transition-transform">
+              <s.icon className={`${s.color} h-4 w-4 opacity-50`} strokeWidth={3} />
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">{s.label}</p>
+              <p className="text-xl font-black text-foreground italic uppercase tracking-tighter">{s.value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-display text-lg flex items-center gap-2">
-            <FileBarChart className="h-5 w-5 text-primary" />
-            Daily Breakdown
+      <Card className="glass-card border-border shadow-2xl bg-card/50 backdrop-blur-xl overflow-hidden">
+        <CardHeader className="bg-secondary/30 border-b border-border/50 px-8 py-6">
+          <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-foreground flex items-center gap-3">
+            <FileBarChart className="h-5 w-5 text-emerald-500" />
+            Personal Transmission Log
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {attendanceData.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No attendance records for this month</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Login Time</TableHead>
-                  <TableHead>Logout Time</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Mode</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {attendanceData.map((a: any) => {
-                  const cls = a.status === "PRESENT" ? "badge-present" : a.status === "LATE" ? "badge-half-day" : a.mode === "LEAVE" ? "badge-on-leave" : "badge-absent";
-                  let hours = 0;
-                  if (a.login_time && a.logout_time) {
-                    hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
-                  }
-                  return (
-                    <TableRow key={a.id}>
-                      <TableCell className="text-sm">{format(new Date(a.date), "dd MMM")}</TableCell>
-                      <TableCell className="text-sm">{a.login_time ? format(new Date(a.login_time), "hh:mm a") : "—"}</TableCell>
-                      <TableCell className="text-sm">{a.logout_time ? format(new Date(a.logout_time), "hh:mm a") : "—"}</TableCell>
-                      <TableCell className="text-sm">{hours > 0 ? hours.toFixed(1) : 0}</TableCell>
-                      <TableCell>
-                        <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-                          {a.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{a.mode || "-"}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent className="p-0">
+          <AnimatePresence mode="wait">
+            {attendanceData.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-24 text-center flex flex-col items-center gap-4 opacity-30"
+              >
+                <Activity size={48} className="text-muted-foreground" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No transmissions detected in this cycle</p>
+              </motion.div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-secondary/20 hover:bg-secondary/20 h-16 border-b border-border/50">
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-8 italic">Timeframe (Date)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Login Vector</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Logout Vector</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Work Units (H)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Status Flag</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pr-8 italic text-right">Operational Mode</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attendanceData.map((a: any) => {
+                    let hours = 0;
+                    if (a.login_time && a.logout_time) {
+                      hours = (new Date(a.logout_time).getTime() - new Date(a.login_time).getTime()) / (1000 * 60 * 60);
+                    }
+                    return (
+                      <TableRow key={a.id} className="h-16 hover:bg-secondary/10 border-b border-border/30 transition-colors">
+                        <TableCell className="text-[11px] font-mono font-bold text-muted-foreground uppercase pl-8 italic">{format(new Date(a.date), "dd MMM, yyyy")}</TableCell>
+                        <TableCell className="text-[11px] font-mono font-bold text-foreground">{a.login_time ? format(new Date(a.login_time), "HH:mm") : "—"}</TableCell>
+                        <TableCell className="text-[11px] font-mono font-bold text-foreground">{a.logout_time ? format(new Date(a.logout_time), "HH:mm") : "—"}</TableCell>
+                        <TableCell className="text-[11px] font-mono font-black text-emerald-500 uppercase">{hours > 0 ? hours.toFixed(1) + "H" : "—"}</TableCell>
+                        <TableCell>
+                          <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border shrink-0 ${getStatusStyle(a.status, a.mode)}`}>
+                            {a.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-[10px] font-black uppercase text-muted-foreground pr-8 text-right italic">{a.mode || "—"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </AnimatePresence>
         </CardContent>
       </Card>
     </div>

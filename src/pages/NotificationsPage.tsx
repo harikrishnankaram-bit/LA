@@ -36,37 +36,57 @@ const NotificationsPage = () => {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="page-header">Notifications</h1>
+    <div className="space-y-8 pb-20">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase mb-0">
+            System <span className="text-blue-500">Alerts</span>
+          </h1>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Real-time Information Relay</p>
+        </div>
         {notifications.some((n: any) => !n.read_status) && (
-          <Button variant="outline" size="sm" onClick={markAllRead}>
-            <Check className="mr-1.5 h-3.5 w-3.5" />Mark all read
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={markAllRead}
+            className="rounded-xl border-border bg-background/50 backdrop-blur-md text-[10px] font-black uppercase tracking-widest hover:bg-secondary transition-all"
+          >
+            <Check className="mr-1.5 h-3.5 w-3.5 text-blue-500" />Mark all as read
           </Button>
         )}
       </div>
 
       {notifications.length === 0 ? (
-        <Card className="stat-card">
-          <CardContent className="p-0 text-center py-8">
-            <Bell className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">No notifications</p>
+        <Card className="glass-card border-border shadow-sm bg-card/50 backdrop-blur-lg">
+          <CardContent className="p-0 text-center py-24 flex flex-col items-center gap-4 opacity-50">
+            <Bell className="h-12 w-12 text-muted-foreground mb-2" />
+            <p className="text-xs font-black uppercase tracking-widest text-foreground">Operational archive empty</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3">
           {notifications.map((n: any) => (
-            <Card key={n.id} className={`transition-colors ${!n.read_status ? "border-primary/30 bg-primary/5" : ""}`}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div>
-                  <p className={`text-sm ${!n.read_status ? "font-medium" : "text-muted-foreground"}`}>{n.message}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {format(new Date(n.created_at), "dd MMM yyyy, hh:mm a")}
-                  </p>
+            <Card key={n.id} className={`glass-card border-border overflow-hidden transition-all duration-300 ${!n.read_status ? "bg-blue-500/5 shadow-md shadow-blue-500/5" : "bg-card/30 opacity-80"}`}>
+              <CardContent className="flex items-center justify-between p-6">
+                <div className="flex items-start gap-4">
+                  <div className={`mt-1.5 h-2 w-2 rounded-full ${!n.read_status ? 'bg-blue-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                  <div>
+                    <p className={`text-sm tracking-tight ${!n.read_status ? "font-black text-foreground" : "text-muted-foreground font-medium"}`}>
+                      {n.message}
+                    </p>
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase mt-2 font-bold tracking-tight">
+                      {format(new Date(n.created_at), "dd MMM yyyy, HH:mm")}
+                    </p>
+                  </div>
                 </div>
                 {!n.read_status && (
-                  <Button variant="ghost" size="sm" onClick={() => markAsRead(n.id)}>
-                    <Check className="h-3.5 w-3.5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => markAsRead(n.id)}
+                    className="h-10 w-10 rounded-xl hover:bg-blue-500/10 text-blue-500 transition-colors"
+                  >
+                    <Check className="h-4 w-4" />
                   </Button>
                 )}
               </CardContent>
