@@ -226,20 +226,29 @@ const EmployeesPage = () => {
                 { auth: { persistSession: false } }
             );
 
-            // 1. Delete Auth User
-            const { error: authError } = await adminClient.auth.admin.deleteUser(deleteId);
-            if (authError) {
-                console.error("Auth deletion warning:", authError);
-                // We continue if it's already gone or if there's a soft error
-            }
+            // 1. Delete Attendance Data
+            await adminClient.from("attendance_daily").delete().eq("user_id", deleteId);
 
-            // 2. Delete Profile using admin client (bypasses RLS)
+            // 2. Delete Leaves
+            await adminClient.from("leaves").delete().eq("user_id", deleteId);
+
+            // 3. Delete Notifications
+            await adminClient.from("notifications").delete().eq("user_id", deleteId);
+
+            // 4. Delete Profile using admin client (bypasses RLS)
             const { error: profileError } = await adminClient
                 .from("profiles")
                 .delete()
                 .eq("user_id", deleteId);
 
             if (profileError) throw profileError;
+
+            // 5. Delete Auth User
+            const { error: authError } = await adminClient.auth.admin.deleteUser(deleteId);
+            if (authError) {
+                console.error("Auth deletion warning:", authError);
+                // We continue if it's already gone or if there's a soft error
+            }
 
             toast.success("Employee removed successfully");
             setDeleteId(null);
