@@ -34,13 +34,19 @@ const AdminDashboard = () => {
 
       const basicStats = {
         totalEmployees: empData.length,
-        presentToday: attData.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length,
-        lateToday: attData.filter((a: any) => a.status === "LATE").length,
+        presentToday: attData.filter((a: any) =>
+          (a.status === "PRESENT" || a.status === "LATE") &&
+          empData.some((e: any) => e.user_id === a.user_id)
+        ).length,
+        lateToday: attData.filter((a: any) =>
+          a.status === "LATE" &&
+          empData.some((e: any) => e.user_id === a.user_id)
+        ).length,
         onLeaveToday: leaveData.filter((l: any) => {
           const start = new Date(l.start_date);
           const end = new Date(l.end_date);
           const t = new Date(today);
-          return t >= start && t <= end;
+          return t >= start && t <= end && empData.some((e: any) => e.user_id === l.user_id);
         }).length,
         pendingLeaves: 0,
       };
@@ -62,8 +68,10 @@ const AdminDashboard = () => {
       attData.forEach((a: any) => {
         if (a.status === "PRESENT" || a.status === "LATE") {
           const emp = empData.find((e: any) => e.user_id === a.user_id);
-          const comp = emp?.company || "Unassigned";
-          compAttMap[comp] = (compAttMap[comp] || 0) + 1;
+          if (emp) {
+            const comp = emp.company || "Unassigned";
+            compAttMap[comp] = (compAttMap[comp] || 0) + 1;
+          }
         }
       });
       const compDist = Object.entries(compAttMap).map(([name, value]) => ({ name, value }));
