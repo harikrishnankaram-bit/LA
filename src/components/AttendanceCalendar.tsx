@@ -160,7 +160,7 @@ const AttendanceCalendar = () => {
             <CardHeader className="px-0 pt-0 pb-6">
                 <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-foreground/50">
                     <Activity className="h-4 w-4 text-emerald-500" />
-                    Workforce Activity Ledger
+                    Attendance Calendar
                 </CardTitle>
             </CardHeader>
             <CardContent className="h-[500px] p-0">

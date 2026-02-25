@@ -8,7 +8,7 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
-    console.error("PROTOCOL BREACH: 404 Error at coordinate:", location.pathname);
+    console.error("404 Error at:", location.pathname);
   }, [location.pathname]);
 
   return (
@@ -25,10 +25,10 @@ const NotFound = () => {
         <div className="mb-8 flex justify-center">
           <motion.div
             animate={{ rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 4, repeat: Infinity }}
-            className="h-24 w-24 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 shadow-2xl shadow-red-500/10"
+            onClick={() => window.history.back()}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center"
           >
-            <ShieldAlert size={48} />
+            Go Back
           </motion.div>
         </div>
 
@@ -39,10 +39,10 @@ const NotFound = () => {
           Coordinate Not Found
         </p>
 
-        <div className="glass-card border-border/50 p-8 rounded-[2rem] bg-card/60 backdrop-blur-3xl shadow-2xl mb-10">
-          <p className="text-lg font-bold text-foreground mb-2 italic uppercase tracking-tight">System Exception</p>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            The requested spatial coordinate <span className="font-mono text-red-500 font-bold bg-secondary/50 px-2 py-0.5 rounded">{location.pathname}</span> does not exist in the Vaazhai Chronos registry.
+        <div className="max-w-md w-full glass-card border-border/50 shadow-2xl p-8 rounded-[2rem] text-center relative z-10 mb-10">
+          <h2 className="text-xl font-black uppercase tracking-widest text-foreground mb-4">Page Not Found</h2>
+          <p className="text-sm font-bold text-muted-foreground mb-8 text-balance">
+            The requested page <span className="font-mono text-emerald-500 font-bold bg-secondary/50 px-2 py-0.5 rounded">{location.pathname}</span> does not exist.
           </p>
         </div>
 

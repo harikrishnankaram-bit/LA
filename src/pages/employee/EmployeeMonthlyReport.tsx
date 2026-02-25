@@ -66,16 +66,16 @@ const EmployeeMonthlyReport = () => {
     <div className="space-y-10 pb-20">
       <div className="flex flex-col gap-1">
         <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
-          Chronometer <span className="text-emerald-500">Report</span>
+          My <span className="text-emerald-500">Reports</span>
         </h1>
-        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Personal Cycle Analytics</p>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Monthly Attendance</p>
       </div>
 
       <Card className="glass-card border-border shadow-2xl bg-card/50 backdrop-blur-xl overflow-visible">
         <CardContent className="p-8">
           <div className="flex flex-col sm:flex-row items-end gap-6">
             <div className="space-y-2 flex-1 max-w-xs">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Archive Period (Month)</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Month</Label>
               <Select value={month} onValueChange={setMonth}>
                 <SelectTrigger className="h-14 bg-background border-border rounded-xl text-foreground font-bold focus:ring-emerald-500/50">
                   <SelectValue />
@@ -88,7 +88,7 @@ const EmployeeMonthlyReport = () => {
               </Select>
             </div>
             <div className="flex-1 text-right sm:text-left">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Active Cycle</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Current Month</p>
               <p className="text-2xl font-black italic uppercase italic text-foreground">{months[selectedMonth]} {selectedYear}</p>
             </div>
           </div>
@@ -97,12 +97,12 @@ const EmployeeMonthlyReport = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
-          { label: "Cycle Days", value: totalDays, icon: Calendar, color: "text-blue-500" },
-          { label: "Authorized", value: presentDays, icon: Users, color: "text-emerald-500" },
-          { label: "Drifts (Late)", value: lateDays, icon: Zap, color: "text-amber-500" },
-          { label: "Absences", value: absentDays, icon: Activity, color: "text-red-500" },
-          { label: "Leave Days", value: leaveDays, icon: Briefcase, color: "text-purple-500" },
-          { label: "Accrued Hours", value: totalWorked.toFixed(1), icon: Clock, color: "text-indigo-500" },
+          { label: "Total Days", value: totalDays, icon: Calendar, color: "text-blue-500" },
+          { label: "Present", value: presentDays, icon: Users, color: "text-emerald-500" },
+          { label: "Late", value: lateDays, icon: Zap, color: "text-amber-500" },
+          { label: "Absent", value: absentDays, icon: Activity, color: "text-red-500" },
+          { label: "On Leave", value: leaveDays, icon: Briefcase, color: "text-purple-500" },
+          { label: "Total Hours", value: totalWorked.toFixed(1), icon: Clock, color: "text-indigo-500" },
         ].map((s) => (
           <Card key={s.label} className="glass-card border-border shadow-sm bg-card/30 backdrop-blur-md overflow-hidden group">
             <CardContent className="p-4 flex flex-col items-center justify-center gap-2 group-hover:scale-105 transition-transform">
@@ -118,7 +118,7 @@ const EmployeeMonthlyReport = () => {
         <CardHeader className="bg-secondary/30 border-b border-border/50 px-8 py-6">
           <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-foreground flex items-center gap-3">
             <FileBarChart className="h-5 w-5 text-emerald-500" />
-            Personal Transmission Log
+            Personal Attendance Log
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -130,18 +130,18 @@ const EmployeeMonthlyReport = () => {
                 className="py-24 text-center flex flex-col items-center gap-4 opacity-30"
               >
                 <Activity size={48} className="text-muted-foreground" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No transmissions detected in this cycle</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No attendance records found for this month</p>
               </motion.div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow className="bg-secondary/20 hover:bg-secondary/20 h-16 border-b border-border/50">
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-8 italic">Timeframe (Date)</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Login Vector</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Logout Vector</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Work Units (H)</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Status Flag</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pr-8 italic text-right">Operational Mode</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-8 italic">Date</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Punch In</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Punch Out</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Duration</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">Status</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pr-8 italic text-right">Work Mode</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,7 +155,17 @@ const EmployeeMonthlyReport = () => {
                         <TableCell className="text-[11px] font-mono font-bold text-muted-foreground uppercase pl-8 italic">{format(new Date(a.date), "dd MMM, yyyy")}</TableCell>
                         <TableCell className="text-[11px] font-mono font-bold text-foreground">{a.login_time ? format(new Date(a.login_time), "HH:mm") : "—"}</TableCell>
                         <TableCell className="text-[11px] font-mono font-bold text-foreground">{a.logout_time ? format(new Date(a.logout_time), "HH:mm") : "—"}</TableCell>
-                        <TableCell className="text-[11px] font-mono font-black text-emerald-500 uppercase">{hours > 0 ? hours.toFixed(1) + "H" : "—"}</TableCell>
+                        <TableCell className="text-[11px] font-mono font-black text-emerald-500 uppercase">
+                          {(() => {
+                            if (a.login_time && a.logout_time) {
+                              const diff = new Date(a.logout_time).getTime() - new Date(a.login_time).getTime();
+                              const hrs = Math.floor(diff / (1000 * 60 * 60));
+                              const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                              return `${hrs}h ${mins}m`;
+                            }
+                            return "—";
+                          })()}
+                        </TableCell>
                         <TableCell>
                           <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border shrink-0 ${getStatusStyle(a.status, a.mode)}`}>
                             {a.status}

@@ -29,7 +29,7 @@ const EmployeeDashboard = () => {
       .from("leaves")
       .select("*")
       .eq("user_id", user.id)
-      .eq("status", "APPROVED")
+      .in("status", ["APPROVED", "CANCEL_REQUESTED"])
       .lte("start_date", localToday)
       .gte("end_date", localToday);
 
@@ -88,7 +88,7 @@ const EmployeeDashboard = () => {
   const handleLogin = async (mode: "WFO" | "WFH") => {
     try {
       if (hasApprovedLeave) {
-        toast.error("Protocol Inactive: Operations are suspended during approved leave.");
+        toast.error("Cannot punch in during approved leave.");
         return;
       }
       setLoading(true);
@@ -153,7 +153,7 @@ const EmployeeDashboard = () => {
           <h1 className="page-header text-4xl flex items-center gap-2 text-foreground italic font-black uppercase tracking-tighter">
             Welcome <span className="text-emerald-500">Back</span> <Sparkles className="h-6 w-6 text-emerald-500 animate-pulse" />
           </h1>
-          <p className="text-muted-foreground mt-1 text-[10px] font-black uppercase tracking-[0.4em] ml-1">Operational Productivity Overview</p>
+          <p className="text-muted-foreground mt-1 text-[10px] font-black uppercase tracking-[0.4em] ml-1">Dashboard Overview</p>
         </div>
         <Button
           variant="outline"
@@ -204,7 +204,7 @@ const EmployeeDashboard = () => {
             </div>
             <CardContent className="p-0">
               <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-black/10">
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Quick Punch Portal</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Quick Punch</span>
                 {todayAttendance?.login_time && <span className="text-[10px] font-mono bg-white/20 px-3 py-1 rounded-full font-bold">STARTED: {format(new Date(todayAttendance.login_time), "HH:mm")}</span>}
               </div>
               <div className="p-6">
@@ -219,7 +219,7 @@ const EmployeeDashboard = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="text-center py-4 px-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm"
                     >
-                      <p className="text-xl font-black italic tracking-tighter uppercase shrink-0">System on Standby</p>
+                      <p className="text-xl font-black italic tracking-tighter uppercase shrink-0">On Leave</p>
                       <p className="text-[10px] opacity-80 font-black uppercase tracking-widest mt-1">Approved Leave Active for Today</p>
                     </motion.div>
                   ) : !todayAttendance ? (
@@ -246,8 +246,8 @@ const EmployeeDashboard = () => {
                       animate={{ y: 0, opacity: 1 }}
                       className="text-center py-4 px-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm"
                     >
-                      <p className="text-xl font-black italic tracking-tighter uppercase shrink-0">Protocol Optimized</p>
-                      <p className="text-[10px] opacity-80 font-black uppercase tracking-widest mt-1">Session Terminated at {format(new Date(todayAttendance.logout_time), "HH:mm")}</p>
+                      <p className="text-xl font-black italic tracking-tighter uppercase shrink-0">Shift Complete</p>
+                      <p className="text-[10px] opacity-80 font-black uppercase tracking-widest mt-1">Session Ended at {format(new Date(todayAttendance.logout_time), "HH:mm")}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -261,7 +261,7 @@ const EmployeeDashboard = () => {
         <motion.div variants={itemVariants} className="lg:col-span-2">
           <Card className="glass-card border-border shadow-sm bg-card/50 backdrop-blur-lg h-full">
             <CardHeader className="flex flex-row items-center justify-between pb-6 border-b border-border/50">
-              <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-muted-foreground">Workforce Activity Analytics</CardTitle>
+              <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-muted-foreground">Attendance Analytics</CardTitle>
               <Zap className="h-5 w-5 text-emerald-500" />
             </CardHeader>
             <CardContent className="pt-8">
@@ -282,7 +282,23 @@ const EmployeeDashboard = () => {
                         {weeklyData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ borderRadius: '16px', border: 'none', background: 'var(--popover)', color: 'var(--popover-foreground)', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', fontWeight: 'bold' }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-card/80 backdrop-blur-2xl border border-border/50 p-4 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col gap-1 min-w-[140px]">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: payload[0].payload.color }} />
+                                  <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{payload[0].name}</p>
+                                </div>
+                                <p className="text-3xl font-black italic tracking-tighter text-foreground pl-4">
+                                  {payload[0].value} <span className="text-[10px] tracking-widest uppercase not-italic text-muted-foreground/30 ml-1">Days</span>
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                        cursor={{ fill: 'transparent' }}
                       />
                       <Legend verticalAlign="bottom" height={36} formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-4">{value}</span>} />
                     </PieChart>
@@ -317,7 +333,7 @@ const EmployeeDashboard = () => {
 
               <div className="flex justify-between items-end group">
                 <div>
-                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-widest">TEMPORAL DRIFT (LATE)</span>
+                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-widest">LATE DAYS</span>
                   <p className="text-5xl font-black font-display text-amber-500 italic tracking-tighter">{weeklyData.find(d => d.name === 'Late')?.value || 0}</p>
                 </div>
                 <div className="h-12 w-px bg-border/50" />
@@ -325,7 +341,7 @@ const EmployeeDashboard = () => {
 
               <div className="flex justify-between items-end group">
                 <div>
-                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-widest">REMOTE DEPLOYMENTS</span>
+                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-widest">REMOTE DAYS</span>
                   <p className="text-5xl font-black font-display text-blue-500 italic tracking-tighter">{weeklyData.find(d => d.name === 'WFH')?.value || 0}</p>
                 </div>
               </div>

@@ -526,12 +526,12 @@ const EmployeesPage = () => {
                 <CardHeader className="bg-secondary/30 border-b border-border py-6 px-8 flex flex-row items-center justify-between gap-4 flex-wrap">
                     <CardTitle className="text-xs font-black uppercase tracking-[0.3em] text-foreground flex items-center gap-2">
                         <Users className="h-4 w-4 text-emerald-500" />
-                        Workforce Registry
+                        Employee Registry
                     </CardTitle>
                     <div className="relative w-full sm:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search units..."
+                            placeholder="Search employees..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-10 bg-background border-border text-foreground font-bold rounded-xl"
@@ -543,10 +543,10 @@ const EmployeesPage = () => {
                         <Table>
                             <TableHeader className="bg-secondary/20">
                                 <TableRow className="border-border hover:bg-transparent">
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6 pl-8">Worker Unit</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Mail Node</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Division</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Contact</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6 pl-8">Employee Name</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Email</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Department</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Phone Number</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6">Status</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest text-foreground/70 py-6 pr-8 text-right">Actions</TableHead>
                                 </TableRow>
@@ -556,7 +556,7 @@ const EmployeesPage = () => {
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-64 text-center">
                                             <Loader2 className="mx-auto h-10 w-10 animate-spin text-emerald-500" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-4 animate-pulse">Syncing Unified Registry</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-4 animate-pulse">Loading Employees</p>
                                         </TableCell>
                                     </TableRow>
                                 ) : filteredEmployees.length === 0 ? (
@@ -615,14 +615,14 @@ const EmployeesPage = () => {
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleResetPassword(emp)} className="rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 p-2.5 focus:bg-secondary">
                                                             <Key className="h-4 w-4 text-blue-500" />
-                                                            Reset Key
+                                                            Reset Password
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => confirmDelete(emp.user_id)}
                                                             className="rounded-lg font-bold text-xs uppercase tracking-widest flex items-center gap-2 p-2.5 text-red-600 focus:text-red-600 focus:bg-red-50"
                                                         >
                                                             <Trash className="h-4 w-4" />
-                                                            Decommission
+                                                            Delete
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -639,7 +639,7 @@ const EmployeesPage = () => {
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent className="glass-card border-border bg-card/90 backdrop-blur-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="font-display font-black uppercase text-foreground">Confirm Operational Removal?</AlertDialogTitle>
+                        <AlertDialogTitle className="font-display font-black uppercase text-foreground">Confirm Delete?</AlertDialogTitle>
                         <AlertDialogDescription className="text-muted-foreground font-medium">
                             This action cannot be undone. This will permanently delete the employee account and remove their data from our servers.
                         </AlertDialogDescription>
@@ -647,11 +647,14 @@ const EmployeesPage = () => {
                     <AlertDialogFooter className="gap-2">
                         <AlertDialogCancel className="rounded-xl border-border bg-transparent text-foreground font-black uppercase tracking-widest hover:bg-secondary">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={handleDelete}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleDelete();
+                            }}
                             className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-red-600/20"
                             disabled={submitting}
                         >
-                            {submitting ? "Processing..." : "Confirm Removal"}
+                            {submitting ? "Processing..." : "Confirm Delete"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -660,7 +663,7 @@ const EmployeesPage = () => {
             <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
                 <AlertDialogContent className="glass-card border-border bg-card/90 backdrop-blur-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="font-display font-black uppercase text-foreground">Reset Security Key?</AlertDialogTitle>
+                        <AlertDialogTitle className="font-display font-black uppercase text-foreground">Reset Password?</AlertDialogTitle>
                         <AlertDialogDescription className="text-muted-foreground font-medium">
                             Are you sure you want to reset the password for <strong>{resetEmp?.full_name}</strong>?
                             The new password will be auto-generated based on their company and phone number.
@@ -669,7 +672,10 @@ const EmployeesPage = () => {
                     <AlertDialogFooter className="gap-2">
                         <AlertDialogCancel onClick={() => setResetEmp(null)} className="rounded-xl border-border bg-transparent text-foreground font-black uppercase tracking-widest hover:bg-secondary">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={confirmResetPassword}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                confirmResetPassword();
+                            }}
                             className="bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-500/20"
                             disabled={submitting}
                         >

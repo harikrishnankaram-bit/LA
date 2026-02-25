@@ -40,9 +40,9 @@ const NotificationsPage = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase mb-0">
-            System <span className="text-blue-500">Alerts</span>
+            System <span className="text-blue-500">Notifications</span>
           </h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Real-time Information Relay</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Your Alerts</p>
         </div>
         {notifications.some((n: any) => !n.read_status) && (
           <Button
@@ -60,7 +60,7 @@ const NotificationsPage = () => {
         <Card className="glass-card border-border shadow-sm bg-card/50 backdrop-blur-lg">
           <CardContent className="p-0 text-center py-24 flex flex-col items-center gap-4 opacity-50">
             <Bell className="h-12 w-12 text-muted-foreground mb-2" />
-            <p className="text-xs font-black uppercase tracking-widest text-foreground">Operational archive empty</p>
+            <p className="text-xs font-black uppercase tracking-widest text-foreground">No notifications found</p>
           </CardContent>
         </Card>
       ) : (

@@ -113,7 +113,7 @@ const AdminMonthlyReports = () => {
         <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
           Monthly <span className="text-blue-500">Reports</span>
         </h1>
-        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Workforce Performance Analytics</p>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Monthly Analytics</p>
       </div>
 
       <Card className="glass-card border-border shadow-2xl bg-card/50 backdrop-blur-xl overflow-visible">
@@ -184,7 +184,7 @@ const AdminMonthlyReports = () => {
           >
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
               {[
-                { label: "Cycle Days", value: totalDays, icon: Calendar, color: "text-blue-500" },
+                { label: "Total Days", value: totalDays, icon: Calendar, color: "text-blue-500" },
                 { label: "Present", value: presentDays, icon: Users, color: "text-emerald-500" },
                 { label: "Late", value: lateDays, icon: Zap, color: "text-amber-500" },
                 { label: "Absent", value: absentDays, icon: Activity, color: "text-red-500" },
@@ -206,15 +206,15 @@ const AdminMonthlyReports = () => {
               <CardHeader className="bg-secondary/30 border-b border-border/50 px-8 py-6">
                 <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-foreground flex items-center gap-3">
                   <FileBarChart className="h-5 w-5 text-blue-500" />
-                  Chronological Workforce Log
+                  Detailed Report
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-secondary/20 hover:bg-secondary/20 h-16 border-b border-border/50">
-                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-8">Worker</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Unit</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground pl-8">Employee</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Company</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Date</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">In</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Out</TableHead>
@@ -237,7 +237,17 @@ const AdminMonthlyReports = () => {
                           <TableCell className="text-[10px] font-mono font-bold text-muted-foreground uppercase">{format(new Date(a.date), "dd MMM")}</TableCell>
                           <TableCell className="text-[10px] font-mono font-bold text-foreground">{a.login_time ? format(new Date(a.login_time), "HH:mm") : "—"}</TableCell>
                           <TableCell className="text-[10px] font-mono font-bold text-foreground">{a.logout_time ? format(new Date(a.logout_time), "HH:mm") : "—"}</TableCell>
-                          <TableCell className="text-[10px] font-mono font-bold text-blue-500">{hours > 0 ? hours.toFixed(1) + "H" : "—"}</TableCell>
+                          <TableCell className="text-[10px] font-mono font-bold text-blue-500">
+                            {(() => {
+                              if (a.login_time && a.logout_time) {
+                                const diff = new Date(a.logout_time).getTime() - new Date(a.login_time).getTime();
+                                const hrs = Math.floor(diff / (1000 * 60 * 60));
+                                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                                return `${hrs}h ${mins}m`;
+                              }
+                              return "—";
+                            })()}
+                          </TableCell>
                           <TableCell>
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shrink-0 ${getStatusStyle(a.status, a.mode)}`}>
                               {a.status}
@@ -260,7 +270,7 @@ const AdminMonthlyReports = () => {
             <Card className="glass-card border-border bg-card/30 backdrop-blur-lg border-dashed">
               <CardContent className="py-24 text-center flex flex-col items-center gap-4 opacity-30">
                 <FileBarChart size={48} className="text-muted-foreground" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No records detected for selected parameters</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No records found</p>
               </CardContent>
             </Card>
           </motion.div>

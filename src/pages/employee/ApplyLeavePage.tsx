@@ -40,11 +40,11 @@ const ApplyLeavePage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!leaveType || !startDate || !endDate || !reason.trim()) {
-      toast.error("Connectivity Issue: Please provide all required data packets.");
+      toast.error("Please provide all required fields.");
       return;
     }
     if (new Date(endDate) < new Date(startDate)) {
-      toast.error("Logic Error: Temporal paradox detected. End date must follow start date.");
+      toast.error("End date must follow start date.");
       return;
     }
     setSubmitting(true);
@@ -70,39 +70,50 @@ const ApplyLeavePage = () => {
             { auth: { persistSession: false } }
           );
 
-          // Find all administrative UUIDs via multiple channels for maximum reliability
-          const [profileAdmins, authUsers]: [any, any] = await Promise.all([
-            adminClient.from("profiles").select("user_id").eq("role", "admin"),
-            adminClient.auth.admin.listUsers()
-          ]);
+          // Find all administrative UUIDs directly from all profiles with admin role permutations
+          const { data: admins, error: adminQueryErr } = await adminClient
+            .from("profiles")
+            .select("user_id, role")
+            .in("role", ["admin", "Admin", "ADMIN"]);
+
+          if (adminQueryErr) throw adminQueryErr;
 
           const adminIds = new Set<string>();
+          admins?.forEach((p: any) => adminIds.add(p.user_id));
 
-          // Channel 1: Profiles table
-          profileAdmins.data?.forEach((p: any) => adminIds.add(p.user_id));
-
-          // Channel 2: Auth metadata (Fallback)
-          authUsers.data?.users.forEach((u: any) => {
-            if (u.user_metadata?.role === 'admin' || u.email?.includes('admin@vaazhai')) {
-              adminIds.add(u.id);
-            }
-          });
+          // Aggressive Fallback: search auth users if no profiles found
+          if (adminIds.size === 0) {
+            const { data: authUsers } = await adminClient.auth.admin.listUsers();
+            authUsers?.users?.forEach((u: any) => {
+              if (
+                u.user_metadata?.role?.toLowerCase() === 'admin' ||
+                u.email?.toLowerCase().includes('admin') ||
+                u.email?.toLowerCase().includes('harikrishnan')
+              ) {
+                adminIds.add(u.id);
+              }
+            });
+          }
 
           if (adminIds.size > 0) {
             const notificationEntries = Array.from(adminIds).map(id => ({
               user_id: id,
-              message: `PROTOCOL ALERT: New leave request from ${profile?.full_name || profile?.username || 'Authorized Personnel'} (${leaveType})`,
+              message: `New leave request from ${profile?.full_name || profile?.username || 'an employee'} for ${leaveType}`,
               read_status: false
             }));
 
-            await adminClient.from("notifications").insert(notificationEntries);
+            const { error: insertErr } = await adminClient.from("notifications").insert(notificationEntries);
+            if (insertErr) throw insertErr;
+            console.log("Successfully relayed notifications to admins:", adminIds);
+          } else {
+            console.warn("No admin users found to relay notification to.");
           }
         }
       } catch (notifyErr) {
-        console.warn("CRITICAL: Notification relay system failure:", notifyErr);
+        console.error("CRITICAL: Notification relay system failure:", notifyErr);
       }
 
-      toast.success("Leave Request Uploaded Successfully!");
+      toast.success("Leave Request Submitted Successfully!");
       setLeaveType("");
       setStartDate("");
       setEndDate("");
@@ -112,6 +123,37 @@ const ApplyLeavePage = () => {
       toast.error(err.message || "Upload failed");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCancelRequest = async (leaveId: string) => {
+    try {
+      const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+      if (serviceRoleKey) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const adminClient = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          serviceRoleKey,
+          { auth: { persistSession: false } }
+        );
+        const { error } = await adminClient
+          .from("leaves")
+          .update({ status: "CANCEL_REQUESTED" })
+          .eq("id", leaveId)
+          .eq("user_id", user!.id); // Security: only their own
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("leaves")
+          .update({ status: "CANCEL_REQUESTED" })
+          .eq("id", leaveId);
+        if (error) throw error;
+      }
+
+      toast.success("Cancellation request sent to admin");
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Request failed");
     }
   };
 
@@ -125,6 +167,14 @@ const ApplyLeavePage = () => {
         return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 text-red-500 text-[10px] font-black uppercase border border-red-500/30">
           <XCircle size={10} /> Denied
         </div>;
+      case "CANCEL_REQUESTED":
+        return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 text-orange-500 text-[10px] font-black uppercase border border-orange-500/30">
+          <AlertCircle size={10} /> Cancellation Requested
+        </div>;
+      case "CANCELLED":
+        return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-500/20 text-gray-500 text-[10px] font-black uppercase border border-gray-500/30">
+          <XCircle size={10} /> Cancelled
+        </div>;
       default:
         return <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase border border-amber-500/30 animate-pulse">
           <Clock size={10} /> Pending
@@ -136,9 +186,9 @@ const ApplyLeavePage = () => {
     <div className="space-y-12">
       <div className="flex flex-col gap-1">
         <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
-          <span className="text-blue-500">LEAVE</span> PROTOCOL
+          <span className="text-blue-500">APPLY</span> LEAVE
         </h1>
-        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] ml-1">Absence Authorization System</p>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] ml-1">Leave Authorization System</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-5">
@@ -152,15 +202,15 @@ const ApplyLeavePage = () => {
               <div>
                 <CardTitle className="text-2xl font-black text-foreground flex items-center gap-3 italic uppercase">
                   <CalendarDays size={28} className="text-blue-500" />
-                  Initiate Request
+                  Submit Request
                 </CardTitle>
-                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-2">Submit temporal absence parameters</p>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-2">Submit leave request parameters</p>
               </div>
             </CardHeader>
             <CardContent className="p-8 sm:p-10">
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Leave Classification</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Leave Type</Label>
                   <Select value={leaveType} onValueChange={setLeaveType}>
                     <SelectTrigger className="h-14 bg-background border-border rounded-2xl text-foreground font-bold focus:ring-blue-500/50">
                       <SelectValue placeholder="Select classification" />
@@ -175,7 +225,7 @@ const ApplyLeavePage = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Commencement Date</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Start Date</Label>
                     <Input
                       type="date"
                       value={startDate}
@@ -184,7 +234,7 @@ const ApplyLeavePage = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Termination Date</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">End Date</Label>
                     <Input
                       type="date"
                       value={endDate}
@@ -195,11 +245,11 @@ const ApplyLeavePage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Justification Protocol</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Reason</Label>
                   <Textarea
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="Enter detailed justification for absence..."
+                    placeholder="Enter detailed reason for leave..."
                     className="min-h-[150px] bg-background border-border rounded-2xl text-foreground font-bold placeholder:text-muted-foreground/30 focus:ring-blue-500/50 resize-none p-4"
                     maxLength={500}
                   />
@@ -212,7 +262,7 @@ const ApplyLeavePage = () => {
                     ) : (
                       <div className="flex items-center justify-center gap-3">
                         <Send size={20} />
-                        Transmit Request
+                        Submit Request
                       </div>
                     )}
                   </Button>
@@ -231,7 +281,7 @@ const ApplyLeavePage = () => {
             <CardHeader className="bg-secondary/30 border-b border-border py-6">
               <CardTitle className="text-[10px] font-black uppercase tracking-[0.4em] flex items-center gap-2 text-foreground">
                 <Activity size={16} className="text-blue-500" />
-                Datalog: Transmission Archive
+                Leave History
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-auto max-h-[700px]">
@@ -239,7 +289,7 @@ const ApplyLeavePage = () => {
                 {myLeaves.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full py-20 opacity-30 gap-4">
                     <AlertCircle size={48} className="text-muted-foreground" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Archive Empty</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">History Empty</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
@@ -252,7 +302,19 @@ const ApplyLeavePage = () => {
                       >
                         <div className="flex items-center justify-between mb-4">
                           <p className="text-sm font-black text-foreground tracking-tight leading-none uppercase">{leave.leave_type}</p>
-                          {statusBadge(leave.status)}
+                          <div className="flex items-center gap-2">
+                            {statusBadge(leave.status)}
+                            {(leave.status === "PENDING" || leave.status === "APPROVED") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCancelRequest(leave.id)}
+                                className="h-6 px-2 text-[9px] border-red-500/30 text-red-500 hover:bg-red-500/10 uppercase tracking-widest"
+                              >
+                                Cancel Leave
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-3 mb-4">
                           <div className="px-3 py-1 rounded-lg bg-background border border-border font-mono text-[11px] font-bold text-muted-foreground">
@@ -265,7 +327,7 @@ const ApplyLeavePage = () => {
                         </div>
                         {leave.admin_comment && (
                           <div className="mt-4 p-4 rounded-xl bg-secondary/50 border-l-4 border-blue-500">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-blue-600 mb-1">Controller Dispatch:</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-blue-600 mb-1">Admin Note:</p>
                             <p className="text-xs text-foreground font-medium italic">"{leave.admin_comment}"</p>
                           </div>
                         )}

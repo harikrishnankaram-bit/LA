@@ -57,7 +57,7 @@ const PunchInPage = () => {
   const handleLogin = async (mode: "WFO" | "WFH") => {
     if (!user) return;
     if (hasApprovedLeave) {
-      toast.error("Access Restricted: Universal Standby Active (Leave Approved)");
+      toast.error("Cannot punch in during approved leave.");
       return;
     }
     setPunching(true);
@@ -96,7 +96,7 @@ const PunchInPage = () => {
         <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
           <span className="text-emerald-500">PUNCH</span> PORTAL
         </h1>
-        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Daily Workforce Entry & Synchronization</p>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Daily Attendance Entry</p>
       </div>
 
       <motion.div
@@ -118,7 +118,7 @@ const PunchInPage = () => {
             </CardTitle>
             <p className="text-muted-foreground font-black text-[10px] uppercase tracking-widest mt-2 flex items-center justify-center gap-2">
               <span className="h-1 w-1 bg-emerald-500 rounded-full animate-ping" />
-              Temporal Sync Active
+              Attendance Tracking Active
             </p>
           </CardHeader>
 
@@ -131,12 +131,12 @@ const PunchInPage = () => {
                     transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
                     className="h-12 w-12 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full"
                   />
-                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] animate-pulse">Authenticating Node</p>
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] animate-pulse">Authenticating User</p>
                 </div>
               ) : hasApprovedLeave ? (
                 <div className="rounded-3xl bg-blue-500/10 border border-blue-500/20 p-8 text-center text-blue-500">
                   <Coffee size={48} className="mx-auto mb-4 opacity-50" />
-                  <p className="text-xl font-black uppercase tracking-tight">System on Standby</p>
+                  <p className="text-xl font-black uppercase tracking-tight">On Leave</p>
                   <p className="mt-2 text-sm font-medium opacity-70 italic font-display">You have a registered leave for today.</p>
                 </div>
               ) : todayAttendance ? (
@@ -204,7 +204,7 @@ const PunchInPage = () => {
                         ) : (
                           <div className="flex items-center justify-center gap-3">
                             <LogOut className="h-6 w-6" />
-                            Terminate Session
+                            Punch Out
                           </div>
                         )}
                       </Button>
@@ -241,13 +241,13 @@ const PunchInPage = () => {
                         </div>
                         <div className="text-center">
                           <p className="font-black text-foreground text-lg tracking-tight uppercase">Remote</p>
-                          <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase mt-1">WFH Digital Node</p>
+                          <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase mt-1">Work From Home</p>
                         </div>
                       </button>
                     </motion.div>
                   </div>
                   <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] px-4 leading-relaxed opacity-60">
-                    By initializing entry, you authorize real-time synchronization with the workforce ledger.
+                    By punching in, you confirm your attendance for today.
                   </p>
                 </div>
               )}
@@ -264,7 +264,7 @@ const PunchInPage = () => {
       >
         <div className="p-6 border-b border-border bg-secondary/30 flex items-center gap-3">
           <Activity className="h-4 w-4 text-emerald-500" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Historical Activity Matrix</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Attendance History</p>
         </div>
         <div className="p-6 sm:p-10">
           <AttendanceCalendar />

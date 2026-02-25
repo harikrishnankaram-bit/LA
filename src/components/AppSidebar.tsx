@@ -19,16 +19,16 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const employeeLinks = [
   { to: "/employee", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/employee/punch", icon: Clock, label: "Punch Portal" },
+  { to: "/employee/punch", icon: Clock, label: "Punch In / Out" },
   { to: "/employee/leave", icon: CalendarDays, label: "Apply Leave" },
-  { to: "/employee/report", icon: FileBarChart, label: "My Stats" },
+  { to: "/employee/report", icon: FileBarChart, label: "My Reports" },
 ];
 
 const adminLinks = [
   { to: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/admin/employees", icon: Users, label: "Workforce" },
+  { to: "/admin/employees", icon: Users, label: "Employees" },
   { to: "/admin/attendance", icon: Users, label: "Attendance" },
-  { to: "/admin/leaves", icon: CheckCircle, label: "Approvals" },
+  { to: "/admin/leaves", icon: CheckCircle, label: "Leave Approvals" },
   { to: "/admin/holidays", icon: CalendarDays, label: "Holidays" },
   { to: "/admin/reports", icon: FileBarChart, label: "Analytics" },
 ];
@@ -96,10 +96,10 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
           </div>
           <div className="flex flex-col min-w-0">
             <h1 className="font-display text-lg font-black tracking-tighter text-foreground uppercase whitespace-nowrap">
-              {profile?.company || "VAAZHAI"} <span className="text-emerald-500">TK</span>
+              {profile?.company || "VAAZHAI"} <span className="text-emerald-500">APP</span>
             </h1>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50 leading-none mt-1">
-              {profile?.role} HUB
+              {profile?.role} PORTAL
             </p>
           </div>
         </div>
@@ -107,7 +107,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto scrollbar-hide">
-        <p className="px-3 mb-2 text-[10px] font-black text-foreground/60 uppercase tracking-[0.2em]">Core Operations</p>
+        <p className="px-3 mb-2 text-[10px] font-black text-foreground/60 uppercase tracking-[0.2em]">Menu</p>
         {links.map((link) => {
           const isActive = location.pathname === link.to;
           return (
@@ -132,7 +132,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
         })}
 
         <div className="my-6 h-px bg-sidebar-border mx-3 opacity-50" />
-        <p className="px-3 mb-2 text-[10px] font-black text-foreground/60 uppercase tracking-[0.2em]">Transmission</p>
+        <p className="px-3 mb-2 text-[10px] font-black text-foreground/60 uppercase tracking-[0.2em]">Notifications</p>
 
         <NavLink
           to={isAdmin ? "/admin/notifications" : "/employee/notifications"}
@@ -143,7 +143,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
             }`}
         >
           <Bell className="h-5 w-5" />
-          <span className="flex-1 italic tracking-tight">System Alerts</span>
+          <span className="flex-1 italic tracking-tight">Alerts</span>
           {unread > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-lg bg-red-500 px-1.5 text-[9px] font-black text-white animate-pulse shadow-lg ring-4 ring-red-500/20">
               {unread}
@@ -163,7 +163,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-black truncate leading-none mb-1 text-foreground italic uppercase tracking-tight">{profile?.full_name}</p>
-              <p className="text-[9px] text-muted-foreground font-black truncate uppercase tracking-widest opacity-60">{profile?.department || "General Unit"}</p>
+              <p className="text-[9px] text-muted-foreground font-black truncate uppercase tracking-widest opacity-60">{profile?.department || "General Dept"}</p>
             </div>
           </div>
           <button

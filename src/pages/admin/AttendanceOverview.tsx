@@ -30,7 +30,7 @@ const AttendanceOverview = () => {
   const { data: attendance = [], isLoading: loadingAtt, error: attError } = useQuery({
     queryKey: ["attendance-overview", date, employeeFilter],
     queryFn: async () => {
-      console.log("FETCH PROTOCOL INITIATED:", { date, filter: employeeFilter });
+      console.log("Fetching attendance:", { date, filter: employeeFilter });
 
       let attQuery = supabase
         .from("attendance_daily")
@@ -60,7 +60,7 @@ const AttendanceOverview = () => {
 
       return attData.map(a => ({
         ...a,
-        profiles: profileMap[a.user_id] || { full_name: "Unknown Entity", department: "Unassigned" }
+        profiles: profileMap[a.user_id] || { full_name: "Unknown Employee", department: "Unassigned" }
       }));
     },
   });
@@ -78,15 +78,15 @@ const AttendanceOverview = () => {
     <div className="space-y-10 pb-20">
       <div className="flex flex-col gap-1">
         <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
-          Workforce <span className="text-emerald-500">Monitoring</span> Grid
+          Attendance <span className="text-emerald-500">Overview</span>
         </h1>
-        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Real-time Attendance Synchronization</p>
+        <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Real-time Attendance</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-6 p-6 bg-secondary/30 backdrop-blur-md rounded-2xl border border-border shadow-sm">
         <div className="space-y-2">
           <Label className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70 ml-1 flex items-center gap-2">
-            <Calendar size={12} /> Temporal Coordinate
+            <Calendar size={12} /> Date
           </Label>
           <Input
             type="date"
@@ -98,14 +98,14 @@ const AttendanceOverview = () => {
 
         <div className="space-y-2">
           <Label className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70 ml-1 flex items-center gap-2">
-            <Users size={12} /> Entity Filter
+            <Users size={12} /> Employee Filter
           </Label>
           <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
             <SelectTrigger className="w-64 h-12 bg-background border-border text-foreground font-bold rounded-xl focus:ring-emerald-500/50">
-              <SelectValue placeholder="All Active Units" />
+              <SelectValue placeholder="All Employees" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border text-popover-foreground">
-              <SelectItem value="all">All Active Units</SelectItem>
+              <SelectItem value="all">All Employees</SelectItem>
               {employees.map((e: any) => (
                 <SelectItem key={e.user_id} value={e.user_id} className="hover:bg-secondary font-bold">
                   {e.full_name}
@@ -119,7 +119,7 @@ const AttendanceOverview = () => {
           <div className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
             <div className={`h-2 w-2 rounded-full bg-emerald-500 ${loadingAtt ? 'animate-ping' : ''}`} />
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">
-              {loadingAtt ? 'Syncing...' : 'System Nominal'}
+              {loadingAtt ? 'Syncing...' : 'System Online'}
             </span>
           </div>
         </div>
@@ -129,7 +129,7 @@ const AttendanceOverview = () => {
         <CardHeader className="bg-secondary/30 border-b border-border py-4 px-8 flex flex-row items-center justify-between">
           <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-foreground">
             <Database className="h-4 w-4 text-emerald-500" />
-            Attendance Manifest — {format(new Date(date), "dd MMM yyyy")}
+            Attendance Records — {format(new Date(date), "dd MMM yyyy")}
           </CardTitle>
           {attendance.length > 0 && (
             <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
@@ -141,19 +141,19 @@ const AttendanceOverview = () => {
           {loadingAtt ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Activity className="h-10 w-10 text-emerald-500 animate-pulse" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Initializing Data Stream</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Loading Data</p>
             </div>
           ) : attError ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-red-500">
               <ShieldAlert size={48} />
-              <p className="text-xs font-black uppercase tracking-widest">Encryption/Fetch Conflict Detected</p>
+              <p className="text-xs font-black uppercase tracking-widest">Error loading data</p>
             </div>
           ) : attendance.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-6 opacity-30">
               <Zap size={60} className="text-muted-foreground" />
               <div className="text-center">
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground">Temporal Void</p>
-                <p className="text-[10px] font-medium mt-2 text-muted-foreground">No activity logs recorded for this coordinate.</p>
+                <p className="text-xs font-black uppercase tracking-[0.3em] text-foreground">No Records</p>
+                <p className="text-[10px] font-medium mt-2 text-muted-foreground">No attendance records found for this date.</p>
               </div>
             </div>
           ) : (
@@ -161,12 +161,13 @@ const AttendanceOverview = () => {
               <Table>
                 <TableHeader className="bg-secondary/20">
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6 pl-8">Worker Unit</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Division</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Arrival</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Departure</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Node Status</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6 pr-8 text-right">Operational Mode</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6 pl-8">Employee Name</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Department</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Punch In</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Punch Out</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Duration</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6">Status</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-muted-foreground py-6 pr-8 text-right">Work Mode</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -183,7 +184,7 @@ const AttendanceOverview = () => {
                             {(a.profiles as any)?.full_name?.[0]}
                           </div>
                           <div>
-                            <p className="text-sm font-black text-foreground tracking-tight uppercase">{(a.profiles as any)?.full_name || "Unknown Entity"}</p>
+                            <p className="text-sm font-black text-foreground tracking-tight uppercase">{(a.profiles as any)?.full_name || "Unknown Employee"}</p>
                             <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase">ID: {a.user_id.slice(0, 8)}</p>
                           </div>
                         </div>
@@ -196,6 +197,17 @@ const AttendanceOverview = () => {
                       </TableCell>
                       <TableCell className="font-mono text-xs text-info font-bold">
                         {a.logout_time ? format(new Date(a.logout_time), "HH:mm:ss") : "LOG-OUT PENDING"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-blue-500 font-bold">
+                        {(() => {
+                          if (a.login_time && a.logout_time) {
+                            const diff = new Date(a.logout_time).getTime() - new Date(a.login_time).getTime();
+                            const hrs = Math.floor(diff / (1000 * 60 * 60));
+                            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            return `${hrs}h ${mins}m`;
+                          }
+                          return "—";
+                        })()}
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest ${getStatusStyle(a.status)}`}>

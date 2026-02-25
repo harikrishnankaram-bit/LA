@@ -96,16 +96,16 @@ const AdminDashboard = () => {
         >
           <Activity className="text-white h-8 w-8" />
         </motion.div>
-        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 animate-pulse">Scanning Neural Network</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 animate-pulse">Loading Data...</p>
       </div>
     );
   }
 
   const cards = [
-    { label: "Total Workforce", value: stats?.basicStats.totalEmployees || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Active Nodes", value: stats?.basicStats.presentToday || 0, icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-    { label: "Standby (Leave)", value: stats?.basicStats.onLeaveToday || 0, icon: Briefcase, color: "text-purple-500", bg: "bg-purple-500/10" },
-    { label: "Actions Pending", value: stats?.basicStats.pendingLeaves || 0, icon: AlertTriangle, color: "text-orange-500", bg: "bg-orange-500/10" },
+    { label: "Total Employees", value: stats?.basicStats.totalEmployees || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Present Today", value: stats?.basicStats.presentToday || 0, icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { label: "On Leave", value: stats?.basicStats.onLeaveToday || 0, icon: Briefcase, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Pending Leaves", value: stats?.basicStats.pendingLeaves || 0, icon: AlertTriangle, color: "text-orange-500", bg: "bg-orange-500/10" },
   ];
 
   const containerVariants = {
@@ -128,20 +128,20 @@ const AdminDashboard = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div className="flex flex-col gap-1">
           <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
-            Admin <span className="text-emerald-500">Command</span> Center
+            Admin <span className="text-emerald-500">Dashboard</span>
           </h1>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Workforce Intelligence & Oversight</p>
+          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Overview</p>
         </div>
         <div className="flex items-center gap-4">
           {isSunday && (
             <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 px-4 py-2 rounded-2xl backdrop-blur-sm animate-pulse">
               <Zap className="text-blue-500 h-4 w-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">WEEKEND STANDBY</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">WEEKEND</span>
             </div>
           )}
           <div className="flex items-center gap-3 bg-secondary/50 border border-border px-4 py-2 rounded-2xl backdrop-blur-sm">
             <ShieldCheck className="text-emerald-500 h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Secured Control Node</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Admin Portal</span>
           </div>
         </div>
       </div>
@@ -175,7 +175,7 @@ const AdminDashboard = () => {
             <CardHeader className="bg-secondary/30 border-b border-border py-4">
               <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-foreground">
                 <Zap className="h-4 w-4 text-emerald-500" />
-                Leave Distribution Matrix
+                Leave Distribution
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[400px] p-6">
@@ -197,7 +197,23 @@ const AdminDashboard = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{ borderRadius: '20px', border: 'none', background: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-card/80 backdrop-blur-2xl border border-border/50 p-4 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col gap-1 min-w-[140px]">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: payload[0].payload?.fill || payload[0].color || payload[0].fill || "#10b981" }} />
+                                <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{payload[0].name}</p>
+                              </div>
+                              <p className="text-3xl font-black italic tracking-tighter text-foreground pl-4">
+                                {payload[0].value} <span className="text-[10px] tracking-widest uppercase not-italic text-muted-foreground/30 ml-1">Leaves</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                      cursor={{ fill: 'transparent' }}
                     />
                     <Legend />
                   </PieChart>
@@ -205,7 +221,7 @@ const AdminDashboard = () => {
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground italic">
                   <Activity size={40} className="opacity-20" />
-                  <p className="text-xs font-black uppercase">Data Stream Static</p>
+                  <p className="text-xs font-black uppercase">No Data Available</p>
                 </div>
               )}
             </CardContent>
@@ -217,7 +233,7 @@ const AdminDashboard = () => {
             <CardHeader className="bg-secondary/30 border-b border-border py-4">
               <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-foreground">
                 <Users className="h-4 w-4 text-emerald-500" />
-                Departmental Load
+                Department Attendance
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[400px] p-6">
@@ -239,14 +255,32 @@ const AdminDashboard = () => {
                       tick={{ fill: 'currentColor', fontWeight: 'bold' }}
                       className="text-muted-foreground"
                     />
-                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', background: 'var(--card)', border: 'none' }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-card/80 backdrop-blur-2xl border border-border/50 p-4 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col gap-1 min-w-[140px]">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{payload[0].payload.name}</p>
+                              </div>
+                              <p className="text-3xl font-black italic tracking-tighter text-foreground pl-4">
+                                {payload[0].value} <span className="text-[10px] tracking-widest uppercase not-italic text-muted-foreground/30 ml-1">Staff</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                      cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                    />
                     <Bar dataKey="value" fill="#10b981" radius={[10, 10, 0, 0]} barSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground italic">
                   <Activity size={40} className="opacity-20" />
-                  <p className="text-xs font-black uppercase">Network Inactive</p>
+                  <p className="text-xs font-black uppercase">No Data Available</p>
                 </div>
               )}
             </CardContent>
@@ -259,7 +293,7 @@ const AdminDashboard = () => {
           <Card className="glass-card border-border shadow-sm overflow-hidden h-full">
             <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-700 py-4 px-8 border-none flex flex-row items-center justify-between text-white">
               <CardTitle className="text-xs font-black uppercase tracking-[0.4em]">
-                Currently on Leave Matrix
+                Currently on Leave
               </CardTitle>
               <div className="px-3 py-1 bg-white/20 rounded-full text-[9px] font-black">LIVE STREAM</div>
             </CardHeader>
@@ -267,7 +301,7 @@ const AdminDashboard = () => {
               {stats?.currentlyOnLeave.length === 0 ? (
                 <div className="p-20 text-center flex flex-col items-center gap-4 opacity-50">
                   <ShieldCheck size={48} className="text-emerald-500" />
-                  <p className="text-xs font-black uppercase tracking-widest leading-relaxed text-foreground">System Status Absolute.<br />All units operational on-site.</p>
+                  <p className="text-xs font-black uppercase tracking-widest leading-relaxed text-foreground">No employees on leave today.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -286,7 +320,7 @@ const AdminDashboard = () => {
                         </div>
                         <div>
                           <p className="font-black text-foreground tracking-tight uppercase">{emp.name}</p>
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mt-1">{emp.dept || "Unassigned Unit"}</p>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mt-1">{emp.dept || "Unassigned Department"}</p>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2 text-right">
@@ -307,7 +341,7 @@ const AdminDashboard = () => {
           <Card className="glass-card border-border shadow-sm overflow-hidden h-full">
             <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 py-4 px-8 border-none flex flex-row items-center justify-between text-white">
               <CardTitle className="text-xs font-black uppercase tracking-[0.4em]">
-                System Alerts & Logs
+                Notifications
               </CardTitle>
               <Bell size={18} className="text-white/50" />
             </CardHeader>

@@ -121,7 +121,7 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-background">
+    <div className="fixed inset-0 flex w-full items-center justify-center overflow-hidden bg-background">
       {/* Dynamic Ambient Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -143,22 +143,21 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
           transition={{ type: "spring", damping: 15, stiffness: 100 }}
           className="mb-12 text-center"
         >
-          <div className="relative inline-block mb-6">
+          <div className="relative inline-block mb-0 -mt-4">
             <div className={`absolute inset-0 blur-2xl rounded-full opacity-20 ${isAdmin ? 'bg-red-500' : 'bg-emerald-500'}`} />
             <motion.div
               whileHover={{ rotate: 5 }}
-              className="relative h-28 w-28 rounded-[2.5rem] bg-card/40 backdrop-blur-2xl border border-white/20 p-5 shadow-2xl flex items-center justify-center"
+              className="relative h-24 w-48 flex items-center justify-center"
             >
-              <img src="/logo.png" alt="Vaazhai" className="h-full w-full object-contain filter drop-shadow-lg" onError={(e) => e.currentTarget.style.display = 'none'} />
-              <Fingerprint className={`h-12 w-12 ${isAdmin ? 'text-red-500' : 'text-emerald-500'}`} />
+              <img src="/logo.png" alt="Vaazhai" className="h-full w-full object-contain filter drop-shadow-2xl" onError={(e) => e.currentTarget.style.display = 'none'} />
             </motion.div>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-black italic tracking-tighter text-foreground uppercase leading-tight">
-            VAAZHAI <span className={isAdmin ? 'text-red-500' : 'text-emerald-500'}>CHRONOS</span>
+            VAAZHAI <span className={isAdmin ? 'text-red-500' : 'text-emerald-500'}>PORTAL</span>
           </h1>
           <p className="mt-2 text-[10px] font-black uppercase tracking-[0.6em] text-muted-foreground ml-2">
-            Temporal Operations Interface
+            Management System
           </p>
         </motion.div>
 
@@ -174,7 +173,7 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
                 <div className="flex flex-col">
                   <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Access Terminal</h2>
                   <p className="text-lg font-black italic uppercase tracking-tight text-foreground">
-                    {isAdmin ? "Controller Node" : "Personnel Uplink"}
+                    {isAdmin ? "Admin Login" : "Employee Login"}
                   </p>
                 </div>
                 <div className={`h-12 w-12 rounded-2xl flex items-center justify-center border transition-colors ${isAdmin ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
@@ -184,7 +183,7 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
 
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="space-y-3">
-                  <Label htmlFor="username" className="text-[10px] font-black uppercase tracking-widest text-foreground/60 ml-1">Identity Vector (Email)</Label>
+                  <Label htmlFor="username" className="text-[10px] font-black uppercase tracking-widest text-foreground/60 ml-1">Email Address</Label>
                   <div className="relative group">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 group-focus-within:text-emerald-500 transition-colors" />
                     <Input
@@ -198,7 +197,7 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-foreground/60 ml-1">Verification Code (Password)</Label>
+                  <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-foreground/60 ml-1">Password</Label>
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 group-focus-within:text-emerald-500 transition-colors" />
                     <Input
@@ -224,22 +223,13 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
                     <span className="flex items-center justify-center gap-3">
-                      Authenticate Access <LogIn className="h-5 w-5" />
+                      Secure Login <LogIn className="h-5 w-5" />
                     </span>
                   )}
                 </Button>
               </form>
 
-              <div className="mt-10 flex flex-col items-center">
-                <div className="h-px w-10 bg-border/50 mb-6" />
-                <button
-                  type="button"
-                  onClick={setupAdmin}
-                  className="text-[9px] font-bold text-muted-foreground hover:text-emerald-500 transition-colors uppercase tracking-[0.4em] text-center px-4"
-                >
-                  Initialize System Core
-                </button>
-              </div>
+
             </CardContent>
           </Card>
         </motion.div>
@@ -251,7 +241,7 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
             className="mt-8 flex items-center gap-3 px-6 py-3 rounded-full bg-red-500/10 border border-red-500/20 backdrop-blur-md"
           >
             <ShieldAlert className="h-4 w-4 text-red-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-red-600">Secure Controller Node</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-red-600">Admin Portal</span>
           </motion.div>
         )}
       </div>

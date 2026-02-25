@@ -66,7 +66,7 @@ export default function CompanyHolidaysPage() {
                 throw error;
             }
 
-            toast.success("Protocol: Holiday record synchronized!");
+            toast.success("Holiday record saved!");
             setForm({ name: "", date: "", company: "all" });
             fetchHolidays();
         } catch (err: any) {
@@ -84,7 +84,7 @@ export default function CompanyHolidaysPage() {
                 .eq("id", id);
 
             if (error) throw error;
-            toast.success("Holiday record purged");
+            toast.success("Holiday deleted!");
             fetchHolidays();
         } catch (err: any) {
             toast.error("Failed to delete holiday");
@@ -97,7 +97,7 @@ export default function CompanyHolidaysPage() {
                 <h1 className="page-header text-4xl font-black italic tracking-tighter text-foreground uppercase">
                     Company <span className="text-emerald-500">Holidays</span>
                 </h1>
-                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Observance & Protocol Management</p>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.4em] ml-1">Holiday Management</p>
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
@@ -111,13 +111,13 @@ export default function CompanyHolidaysPage() {
                         <CardHeader className="bg-secondary/30 border-b border-border/50 px-6 py-4">
                             <CardTitle className="text-[10px] font-black tracking-[0.2em] uppercase text-foreground flex items-center gap-2">
                                 <Plus size={14} className="text-emerald-500" />
-                                Synchronize New Holiday
+                                Add New Holiday
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-6">
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Holiday Designation</Label>
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Holiday Name</Label>
                                     <Input
                                         placeholder="e.g. Lunar Sequence, Solar Shift"
                                         value={form.name}
@@ -127,7 +127,7 @@ export default function CompanyHolidaysPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Transmission Date</Label>
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Date</Label>
                                     <Input
                                         type="date"
                                         value={form.date}
@@ -137,13 +137,13 @@ export default function CompanyHolidaysPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Unit Deployment (Scope)</Label>
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Company Scope</Label>
                                     <Select value={form.company} onValueChange={(v) => setForm({ ...form, company: v })}>
                                         <SelectTrigger className="h-12 bg-background border-border rounded-xl text-foreground font-bold focus:ring-emerald-500/50">
                                             <SelectValue placeholder="Select company scope" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-popover border-border">
-                                            <SelectItem value="all" className="font-bold">Global Observance (All Units)</SelectItem>
+                                            <SelectItem value="all" className="font-bold">Global (All Companies)</SelectItem>
                                             <SelectItem value="Tensemi" className="font-bold">Tensemi</SelectItem>
                                             <SelectItem value="Aram" className="font-bold">Aram</SelectItem>
                                             <SelectItem value="Raphael Creatives" className="font-bold">Raphael Creatives</SelectItem>
@@ -158,7 +158,7 @@ export default function CompanyHolidaysPage() {
                                     className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/10 uppercase tracking-widest border-none transition-all"
                                 >
                                     {submitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Plus className="h-5 w-5 mr-2" />}
-                                    Deploy Holiday Protocol
+                                    Save Holiday
                                 </Button>
                             </form>
                         </CardContent>
@@ -175,7 +175,7 @@ export default function CompanyHolidaysPage() {
                         <CardHeader className="bg-secondary/30 border-b border-border/50 px-8 py-6">
                             <CardTitle className="text-[10px] font-black tracking-[0.4em] uppercase text-foreground flex items-center gap-3">
                                 <Calendar className="h-5 w-5 text-emerald-500" />
-                                Workforce Observance Archive
+                                Holiday List
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
@@ -186,7 +186,7 @@ export default function CompanyHolidaysPage() {
                             ) : holidays.length === 0 ? (
                                 <div className="text-center py-24 text-muted-foreground flex flex-col items-center gap-4 opacity-30">
                                     <ShieldAlert size={48} />
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No observances detected in system core</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-foreground">No holidays found</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-border/50">
@@ -213,7 +213,7 @@ export default function CompanyHolidaysPage() {
                                                                 </span>
                                                             ) : (
                                                                 <span className="flex items-center gap-1 text-[9px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
-                                                                    <Globe size={10} /> Global Protocol
+                                                                    <Globe size={10} /> Global
                                                                 </span>
                                                             )}
                                                             <span className="text-[9px] font-mono font-bold text-muted-foreground opacity-50 ml-2">ID: {holiday.id.split('-')[0]}</span>
@@ -232,9 +232,9 @@ export default function CompanyHolidaysPage() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent className="glass-card border-border bg-card/90 backdrop-blur-2xl rounded-3xl">
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle className="text-xl font-black italic uppercase tracking-tighter text-foreground">Purge Observance?</AlertDialogTitle>
+                                                            <AlertDialogTitle className="text-xl font-black italic uppercase tracking-tighter text-foreground">Delete Holiday?</AlertDialogTitle>
                                                             <AlertDialogDescription className="text-muted-foreground font-medium">
-                                                                This will permanently delete the holiday protocol for <span className="text-foreground font-bold italic">"{holiday.name}"</span>. This action is irreversible.
+                                                                This will permanently delete the holiday <span className="text-foreground font-bold italic">"{holiday.name}"</span>. This action is irreversible.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter className="mt-6 gap-3">
@@ -243,7 +243,7 @@ export default function CompanyHolidaysPage() {
                                                                 onClick={() => handleDelete(holiday.id)}
                                                                 className="h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest border-none px-8"
                                                             >
-                                                                Purge Record
+                                                                Delete
                                                             </AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
