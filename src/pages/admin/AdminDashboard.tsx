@@ -58,12 +58,15 @@ const AdminDashboard = () => {
       });
       const leaveTypeDist = Object.entries(leaveTypeMap).map(([name, value]) => ({ name, value }));
 
-      const deptLeaveMap: Record<string, number> = {};
-      leaveData.forEach((l: any) => {
-        const dept = l.profiles?.department || "Unassigned";
-        deptLeaveMap[dept] = (deptLeaveMap[dept] || 0) + 1;
+      const compAttMap: Record<string, number> = {};
+      attData.forEach((a: any) => {
+        if (a.status === "PRESENT" || a.status === "LATE") {
+          const emp = empData.find((e: any) => e.user_id === a.user_id);
+          const comp = emp?.company || "Unassigned";
+          compAttMap[comp] = (compAttMap[comp] || 0) + 1;
+        }
       });
-      const deptDist = Object.entries(deptLeaveMap).map(([name, value]) => ({ name, value }));
+      const compDist = Object.entries(compAttMap).map(([name, value]) => ({ name, value }));
 
       const currentlyOnLeave = leaveData.filter((l: any) => {
         const start = l.start_date;
@@ -79,7 +82,7 @@ const AdminDashboard = () => {
       return {
         basicStats,
         leaveTypeDist,
-        deptDist,
+        compDist,
         currentlyOnLeave,
         notifications: notifs.data || []
       };
@@ -233,13 +236,13 @@ const AdminDashboard = () => {
             <CardHeader className="bg-secondary/30 border-b border-border py-4">
               <CardTitle className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 text-foreground">
                 <Users className="h-4 w-4 text-emerald-500" />
-                Department Attendance
+                Company Attendance
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[400px] p-6">
-              {stats?.deptDist.length ? (
+              {stats?.compDist?.length ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.deptDist}>
+                  <BarChart data={stats.compDist || []}>
                     <XAxis
                       dataKey="name"
                       fontSize={10}
