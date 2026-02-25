@@ -588,7 +588,7 @@ const EmployeesPage = () => {
                                                         <div className="mt-1.5">
                                                             <Badge variant="secondary" className="gap-1 px-1.5 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-600 border-none uppercase tracking-widest">
                                                                 <img
-                                                                    src={`/${emp.company || "Vaazhai"}.png`}
+                                                                    src={`/${emp.company?.trim() || "Vaazhai"}.png`}
                                                                     alt=""
                                                                     className="h-3 w-3 object-contain"
                                                                     onError={(e) => { e.currentTarget.style.display = 'none'; }}

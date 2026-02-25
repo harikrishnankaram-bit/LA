@@ -82,7 +82,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
           <div className="relative">
             <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
             <img
-              src={`/${profile?.company || "logo"}.png`}
+              src={`/${profile?.company?.trim() || "logo"}.png`}
               alt="Logo"
               className="relative h-10 w-auto object-contain"
               onError={(e) => {
@@ -96,7 +96,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
           </div>
           <div className="flex flex-col min-w-0">
             <h1 className="font-display text-lg font-black tracking-tighter text-foreground uppercase whitespace-nowrap">
-              {profile?.company || "VAAZHAI"} <span className="text-emerald-500">APP</span>
+              {profile?.company?.trim() || "VAAZHAI"} <span className="text-emerald-500">APP</span>
             </h1>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/50 leading-none mt-1">
               {profile?.role} PORTAL

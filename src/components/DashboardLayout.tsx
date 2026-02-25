@@ -89,7 +89,7 @@ const DashboardLayout = () => {
           <div className="flex items-center gap-2 max-w-[70%]">
             <div className="h-8 w-8 bg-emerald-500 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-primary/20 shadow-lg">
               <img
-                src={`/${profile?.company || "logo"}.png`}
+                src={`/${profile?.company?.trim() || "logo"}.png`}
                 alt=""
                 className="h-full w-full object-contain p-1"
                 onError={(e) => {
@@ -100,10 +100,10 @@ const DashboardLayout = () => {
                   }
                 }}
               />
-              {!profile?.company && <span className="font-black text-xs text-white">V</span>}
+              {!profile?.company?.trim() && <span className="font-black text-xs text-white">V</span>}
             </div>
             <h1 className="font-display text-lg font-black tracking-tighter text-foreground uppercase whitespace-nowrap">
-              {profile?.company || "VAAZHAI"} <span className="text-emerald-500">TIME KEEPER</span>
+              {profile?.company?.trim() || "VAAZHAI"} <span className="text-emerald-500">TIME KEEPER</span>
             </h1>
           </div>
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="text-emerald-500">
