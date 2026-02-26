@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { LogIn, ShieldAlert, Sparkles, Fingerprint, Lock, Mail, Loader2 } from "lucide-react";
+import { LogIn, ShieldAlert, Sparkles, Lock, Mail, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -71,54 +70,8 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
     }
   };
 
-  const setupAdmin = async () => {
-    setIsLoading(true);
-    try {
-      const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-      if (!serviceRoleKey) {
-        toast.error("Config Failure: Missing Service Role Authority");
-        return;
-      }
-
-      const { createClient } = await import('@supabase/supabase-js');
-      const adminClient = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        serviceRoleKey,
-        { auth: { persistSession: false } }
-      );
-
-      const { error } = await adminClient.auth.admin.createUser({
-        email: "admin@vaazhai.com",
-        password: "admin123",
-        email_confirm: true,
-        user_metadata: { role: "admin", full_name: "System Admin" }
-      });
-
-      if (error && error.message.includes("already registered")) {
-        const { data: userData } = await adminClient.auth.admin.listUsers();
-        const existingAdmin = (userData.users as any[]).find(u => u.email === "admin@vaazhai.com");
-        if (existingAdmin) {
-          await adminClient.from("profiles").upsert({
-            user_id: existingAdmin.id,
-            full_name: "System Admin",
-            username: "admin@vaazhai.com",
-            role: "admin",
-            department: "Management",
-            company: "Vaazhai"
-          }, { onConflict: 'user_id' });
-        }
-        toast.info("Security Audit: Admin account synchronization verified.");
-      } else if (error) {
-        throw error;
-      } else {
-        toast.success("Environmental Initialization: Core administrator deployed.");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Initialization failure");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Note: Admin provisioning is done directly via the Supabase dashboard,
+  // never via client-side service role keys (security risk).
 
   return (
     <div className="fixed inset-0 flex w-full items-center justify-center overflow-hidden bg-background">
