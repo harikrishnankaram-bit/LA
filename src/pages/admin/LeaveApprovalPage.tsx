@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminClient } from "@/integrations/supabase/adminClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,26 +97,12 @@ const LeaveApprovalPage = () => {
 
       // Notify employee
       try {
-        const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-        if (serviceRoleKey) {
-          const { createClient } = await import('@supabase/supabase-js');
-          const rootClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL,
-            serviceRoleKey,
-            { auth: { persistSession: false } }
-          );
-          await rootClient.from("notifications").insert({
-            user_id: userId,
-            message: `Your leave request has been ${action}.`,
-            read_status: false
-          });
-        } else {
-          await supabase.from("notifications").insert({
-            user_id: userId,
-            message: `Your leave request has been ${action}.`,
-            read_status: false
-          });
-        }
+        const adminClient = getAdminClient();
+        await adminClient.from("notifications").insert({
+          user_id: userId,
+          message: `Your leave request has been ${action}.`,
+          read_status: false
+        });
       } catch (notifyErr) {
         console.error("Failed to notify user:", notifyErr);
       }

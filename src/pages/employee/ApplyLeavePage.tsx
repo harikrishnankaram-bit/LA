@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminClient } from "@/integrations/supabase/adminClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,53 +62,42 @@ const ApplyLeavePage = () => {
 
       // 2. Relay Notifications to Administrators
       try {
-        const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-        if (serviceRoleKey) {
-          const { createClient } = await import('@supabase/supabase-js');
-          const adminClient = createClient(
-            import.meta.env.VITE_SUPABASE_URL,
-            serviceRoleKey,
-            { auth: { persistSession: false } }
-          );
+        const adminClient = getAdminClient();
 
-          // Find all administrative UUIDs directly from all profiles with admin role permutations
-          const { data: admins, error: adminQueryErr } = await adminClient
-            .from("profiles")
-            .select("user_id, role")
-            .in("role", ["admin", "Admin", "ADMIN"]);
+        // Find all administrative UUIDs directly from all profiles with admin role
+        const { data: admins, error: adminQueryErr } = await adminClient
+          .from("profiles")
+          .select("user_id, role")
+          .in("role", ["admin", "Admin", "ADMIN"]);
 
-          if (adminQueryErr) throw adminQueryErr;
+        if (adminQueryErr) throw adminQueryErr;
 
-          const adminIds = new Set<string>();
-          admins?.forEach((p: any) => adminIds.add(p.user_id));
+        const adminIds = new Set<string>();
+        admins?.forEach((p: any) => adminIds.add(p.user_id));
 
-          // Aggressive Fallback: search auth users if no profiles found
-          if (adminIds.size === 0) {
-            const { data: authUsers } = await adminClient.auth.admin.listUsers();
-            authUsers?.users?.forEach((u: any) => {
-              if (
-                u.user_metadata?.role?.toLowerCase() === 'admin' ||
-                u.email?.toLowerCase().includes('admin') ||
-                u.email?.toLowerCase().includes('harikrishnan')
-              ) {
-                adminIds.add(u.id);
-              }
-            });
-          }
+        // Fallback: search auth users if no profiles found
+        if (adminIds.size === 0) {
+          const { data: authUsers } = await adminClient.auth.admin.listUsers();
+          authUsers?.users?.forEach((u: any) => {
+            if (
+              u.user_metadata?.role?.toLowerCase() === 'admin' ||
+              u.email?.toLowerCase().includes('admin') ||
+              u.email?.toLowerCase().includes('harikrishnan')
+            ) {
+              adminIds.add(u.id);
+            }
+          });
+        }
 
-          if (adminIds.size > 0) {
-            const notificationEntries = Array.from(adminIds).map(id => ({
-              user_id: id,
-              message: `New leave request from ${profile?.full_name || profile?.username || 'an employee'} for ${leaveType}`,
-              read_status: false
-            }));
+        if (adminIds.size > 0) {
+          const notificationEntries = Array.from(adminIds).map(id => ({
+            user_id: id,
+            message: `New leave request from ${profile?.full_name || profile?.username || 'an employee'} for ${leaveType}`,
+            read_status: false
+          }));
 
-            const { error: insertErr } = await adminClient.from("notifications").insert(notificationEntries);
-            if (insertErr) throw insertErr;
-            console.log("Successfully relayed notifications to admins:", adminIds);
-          } else {
-            console.warn("No admin users found to relay notification to.");
-          }
+          const { error: insertErr } = await adminClient.from("notifications").insert(notificationEntries);
+          if (insertErr) throw insertErr;
         }
       } catch (notifyErr) {
         console.error("CRITICAL: Notification relay system failure:", notifyErr);
@@ -128,27 +118,13 @@ const ApplyLeavePage = () => {
 
   const handleCancelRequest = async (leaveId: string) => {
     try {
-      const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-      if (serviceRoleKey) {
-        const { createClient } = await import('@supabase/supabase-js');
-        const adminClient = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          serviceRoleKey,
-          { auth: { persistSession: false } }
-        );
-        const { error } = await adminClient
-          .from("leaves")
-          .update({ status: "CANCEL_REQUESTED" })
-          .eq("id", leaveId)
-          .eq("user_id", user!.id); // Security: only their own
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("leaves")
-          .update({ status: "CANCEL_REQUESTED" })
-          .eq("id", leaveId);
-        if (error) throw error;
-      }
+      const adminClient = getAdminClient();
+      const { error } = await adminClient
+        .from("leaves")
+        .update({ status: "CANCEL_REQUESTED" })
+        .eq("id", leaveId)
+        .eq("user_id", user!.id);
+      if (error) throw error;
 
       toast.success("Cancellation request sent to admin");
       refetch();

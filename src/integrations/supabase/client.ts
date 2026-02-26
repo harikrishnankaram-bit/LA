@@ -1,34 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-/**
- * Custom fetch that forces HTTP/1.1 by disabling the QUIC/HTTP3 cache hint.
- * This fixes ERR_QUIC_PROTOCOL_ERROR on networks that block UDP (QUIC).
- */
-const customFetch: typeof fetch = (input, init) => {
-  return fetch(input, {
-    ...init,
-    // 'no-store' prevents Chrome from using a cached QUIC/Alt-Svc connection
-    // that might be broken, forcing it to fall back to TCP/HTTP2
-    cache: 'no-store',
-  });
-};
+// In development, route ALL Supabase traffic through the Vite proxy server.
+// Node.js (the proxy) does not implement QUIC, so all requests go over TCP —
+// this permanently fixes ERR_QUIC_PROTOCOL_ERROR in Chrome dev mode.
+// In production, the real Supabase URL is used directly.
+const CLIENT_URL = import.meta.env.DEV
+  ? `${window.location.origin}/supabase`
+  : SUPABASE_URL;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient<Database>(CLIENT_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    // Reduce retries so a bad session fails fast instead of retrying 3x
-    // causing a flood of ERR_QUIC errors in the console
-  },
-  global: {
-    fetch: customFetch,
   },
 });
+
+// Re-export for convenience
+export { SUPABASE_URL, SUPABASE_ANON_KEY };

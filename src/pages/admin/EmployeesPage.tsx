@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminClient } from "@/integrations/supabase/adminClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,12 +111,7 @@ const EmployeesPage = () => {
         try {
             if (editMode && currentId) {
                 // UPDATE EXISTING EMPLOYEE
-                const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-                if (!serviceRoleKey) {
-                    throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
-                }
-                const { createClient } = await import('@supabase/supabase-js');
-                const adminClient = createClient(import.meta.env.VITE_SUPABASE_URL, serviceRoleKey, { auth: { persistSession: false } });
+                const adminClient = getAdminClient();
 
                 // 1. Update Auth Metadata (so identity is consistent)
                 await adminClient.auth.admin.updateUserById(currentId, {
@@ -148,18 +144,8 @@ const EmployeesPage = () => {
                 if (last4.length < 4) last4 = "1234";
                 const generatedPassword = `${companyPart}@${last4}`;
 
-                // Using service role key directly in frontend to bypass "signups disabled"
-                const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-                if (!serviceRoleKey) {
-                    throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
-                }
-
-                const { createClient } = await import('@supabase/supabase-js');
-                const adminClient = createClient(
-                    import.meta.env.VITE_SUPABASE_URL,
-                    serviceRoleKey,
-                    { auth: { persistSession: false } }
-                );
+                // Using admin client to bypass "signups disabled" restriction
+                const adminClient = getAdminClient();
 
                 const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
                     email: form.username,
@@ -214,17 +200,7 @@ const EmployeesPage = () => {
         if (!deleteId) return;
         setSubmitting(true);
         try {
-            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-            if (!serviceRoleKey) {
-                throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
-            }
-
-            const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                serviceRoleKey,
-                { auth: { persistSession: false } }
-            );
+            const adminClient = getAdminClient();
 
             // 1. Delete Attendance Data
             await adminClient.from("attendance_daily").delete().eq("user_id", deleteId);
@@ -276,15 +252,7 @@ const EmployeesPage = () => {
 
         setSubmitting(true);
         try {
-            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-            if (!serviceRoleKey) throw new Error("Missing service role key");
-
-            const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                serviceRoleKey,
-                { auth: { persistSession: false } }
-            );
+            const adminClient = getAdminClient();
 
             const { error } = await adminClient.auth.admin.updateUserById(emp.user_id, {
                 password: newPassword
@@ -322,17 +290,7 @@ const EmployeesPage = () => {
             let successCount = 0;
             let errorCount = 0;
 
-            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-            if (!serviceRoleKey) {
-                throw new Error("Missing VITE_SUPABASE_SERVICE_ROLE_KEY in .env file");
-            }
-
-            const { createClient } = await import('@supabase/supabase-js');
-            const adminClient = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                serviceRoleKey,
-                { auth: { persistSession: false } }
-            );
+            const adminClient = getAdminClient();
 
             for (const row of json) {
                 const fullName = row["Full Name"];
