@@ -29,6 +29,19 @@ export const useAuth = () => {
   return ctx;
 };
 
+/** Clears any stale Supabase session keys from localStorage */
+const clearStaleSession = () => {
+  try {
+    const keys = Object.keys(localStorage).filter(
+      (k) => k.startsWith("sb-") && k.includes("-auth-token")
+    );
+    keys.forEach((k) => localStorage.removeItem(k));
+    console.log("Cleared stale Supabase session from localStorage.");
+  } catch (_) {
+    // localStorage might not be accessible in some environments
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -40,19 +53,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from("profiles")
         .select("*")
         .eq("user_id", userId)
-        .maybeSingle(); // Changed from .single() to .maybeSingle() to avoid 406 errors
+        .maybeSingle();
 
       if (data) {
         setProfile(data as Profile);
       } else {
         // Fallback: If no profile row exists, check the Auth Metadata (Standard for Admin)
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && user.user_metadata?.role === "admin") {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser && authUser.user_metadata?.role === "admin") {
           setProfile({
-            id: user.id,
-            user_id: user.id,
-            full_name: user.user_metadata.full_name || "Admin",
-            username: user.email || "admin",
+            id: authUser.id,
+            user_id: authUser.id,
+            full_name: authUser.user_metadata.full_name || "Admin",
+            username: authUser.email || "admin",
             role: "admin",
             department: "Admin",
             company: "Vaazhai",
@@ -70,20 +83,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        // If Supabase returns a network/retryable error, the stored session
+        // token is stale or the project is unreachable. Clear it so the user
+        // sees the login page instead of an infinite spinner.
+        if (error) {
+          console.warn("Session fetch error — clearing stale session:", error.message);
+          clearStaleSession();
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+          }
+          return;
+        }
+
         console.log("SESSION:", session);
 
         if (session?.user) {
           console.log("USER:", session.user);
-          setUser(session.user);
-          // Await profile fetch before setting loading to false
+          if (mounted) setUser(session.user);
           await fetchProfile(session.user.id);
         } else {
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+          }
+        }
+      } catch (error: any) {
+        // Network-level failure (e.g. ERR_QUIC_PROTOCOL_ERROR, ERR_CONNECTION_TIMED_OUT)
+        // Treat as "no session" so the user sees the login page, not a frozen spinner
+        console.warn("AUTH INIT NETWORK ERROR — showing login page:", error?.message);
+        clearStaleSession();
+        if (mounted) {
           setUser(null);
           setProfile(null);
         }
-      } catch (error) {
-        console.error("AUTH INIT ERROR:", error);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -93,14 +128,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("AUTH STATE CHANGE:", event);
+
+      // TOKEN_REFRESHED_FAILED means the stored token is expired / network is down
+      // Sign out cleanly so the user is redirected to login
+      if (event === "TOKEN_REFRESHED" && !session) {
+        console.warn("Token refresh failed — signing out");
+        clearStaleSession();
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
+        }
+        return;
+      }
+
       if (session?.user) {
-        setUser(session.user);
-        // If profile is missing or mismatched (e.g. account switch), fetch it
-        // Note: We don't block here as this is an event listener, but signIn awaits it manually below
+        if (mounted) setUser(session.user);
         fetchProfile(session.user.id);
-      } else {
-        setUser(null);
-        setProfile(null);
+      } else if (event === "SIGNED_OUT") {
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
+        }
       }
     });
 
@@ -116,7 +164,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (username === "admin@vaazhai" || username === "admin") {
       email = "admin@vaazhai.com";
     } else {
-      // The user now enters their actual email as their username
       email = username.trim();
     }
 
@@ -130,13 +177,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (authData.user) {
-      // Ensure profile is fetched before resolving signIn
       await fetchProfile(authData.user.id);
     }
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    clearStaleSession();
     setUser(null);
     setProfile(null);
   };
