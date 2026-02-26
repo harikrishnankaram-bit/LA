@@ -20,6 +20,25 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/supabase/, ""),
+        configure: (proxy) => {
+          // When the proxy cannot reach Supabase (ETIMEDOUT, ECONNREFUSED, etc.),
+          // return a proper JSON error instead of an empty 500 body.
+          // This prevents "Unexpected end of JSON input" in the Supabase SDK.
+          proxy.on("error", (err, _req, res) => {
+            console.error("[Supabase Proxy Error]", err.message);
+            if (res && !res.headersSent) {
+              (res as any).writeHead(503, { "Content-Type": "application/json" });
+              (res as any).end(
+                JSON.stringify({
+                  error: "service_unavailable",
+                  message:
+                    "Cannot reach Supabase. The project may be paused. Visit supabase.com/dashboard to resume it.",
+                  code: err.message,
+                })
+              );
+            }
+          });
+        },
       },
     },
   },

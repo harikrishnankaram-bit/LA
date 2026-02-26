@@ -64,7 +64,29 @@ const LoginPage = ({ isAdmin = false }: LoginProps) => {
         icon: <Sparkles className="h-4 w-4 text-emerald-500" />
       });
     } catch (err: any) {
-      toast.error(err.message || "Authentication breakdown: Access Denied");
+      // Map cryptic SDK/network errors to clear user-facing messages
+      const msg: string = err?.message || "";
+      let displayError: string;
+
+      if (
+        msg.includes("Unexpected end of JSON") ||
+        msg.includes("Failed to fetch") ||
+        msg.includes("service_unavailable") ||
+        msg.includes("NetworkError") ||
+        msg.includes("ETIMEDOUT") ||
+        msg.includes("ERR_CONNECTION") ||
+        msg.includes("ERR_QUIC")
+      ) {
+        displayError = "⚠️ Cannot reach the server. The database may be paused — please check your Supabase dashboard and resume the project.";
+      } else if (msg.includes("Invalid login credentials")) {
+        displayError = "Incorrect email or password. Please try again.";
+      } else if (msg.includes("Email not confirmed")) {
+        displayError = "Please confirm your email before logging in.";
+      } else {
+        displayError = msg || "Login failed. Please try again.";
+      }
+
+      toast.error(displayError, { duration: 8000 });
     } finally {
       setIsLoading(false);
     }
