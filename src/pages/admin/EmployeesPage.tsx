@@ -434,7 +434,7 @@ const EmployeesPage = () => {
                                             type="email"
                                             value={form.username}
                                             onChange={(e) => setForm({ ...form, username: e.target.value })}
-                                            placeholder="john@tensemi.com"
+                                            placeholder="john@vaazhai.com"
                                             disabled={editMode}
                                             className="bg-background border-border text-foreground font-bold rounded-xl disabled:opacity-50"
                                         />
@@ -457,7 +457,7 @@ const EmployeesPage = () => {
                                             </SelectTrigger>
                                             <SelectContent className="bg-popover border-border text-popover-foreground">
                                                 <SelectItem value="Vaazhai">Vaazhai (Core)</SelectItem>
-                                                <SelectItem value="Tensemi">Tensemi</SelectItem>
+                                                <SelectItem value="Vaazhai">Vaazhai</SelectItem>
                                                 <SelectItem value="Aram">Aram</SelectItem>
                                                 <SelectItem value="Raphael Creatives">Raphael Creatives</SelectItem>
                                                 <SelectItem value="Kottravai">Kottravai</SelectItem>

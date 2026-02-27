@@ -127,7 +127,7 @@ const AdminMonthlyReports = () => {
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
                   <SelectItem value="all" className="font-bold">All Companies</SelectItem>
-                  <SelectItem value="Tensemi" className="font-bold">Tensemi</SelectItem>
+                  <SelectItem value="Vaazhai" className="font-bold">Vaazhai</SelectItem>
                   <SelectItem value="Aram" className="font-bold">Aram</SelectItem>
                   <SelectItem value="Raphael Creatives" className="font-bold">Raphael Creatives</SelectItem>
                   <SelectItem value="Kottravai" className="font-bold">Kottravai</SelectItem>
