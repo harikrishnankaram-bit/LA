@@ -53,8 +53,8 @@ const ApplyLeavePage = () => {
       const { error } = await supabase.from("leaves").insert({
         user_id: user!.id,
         leave_type: leaveType,
-        start_date: startDate,
-        end_date: endDate,
+        from_date: startDate,
+        to_date: endDate,
         reason: reason.trim(),
         status: 'PENDING'
       });
@@ -294,11 +294,11 @@ const ApplyLeavePage = () => {
                         </div>
                         <div className="flex items-center gap-3 mb-4">
                           <div className="px-3 py-1 rounded-lg bg-background border border-border font-mono text-[11px] font-bold text-muted-foreground">
-                            {format(new Date(leave.start_date), "dd MMM")}
+                            {format(new Date(leave.from_date), "dd MMM")}
                           </div>
                           <div className="h-px w-4 bg-border" />
                           <div className="px-3 py-1 rounded-lg bg-background border border-border font-mono text-[11px] font-bold text-muted-foreground">
-                            {format(new Date(leave.end_date), "dd MMM, yyyy")}
+                            {format(new Date(leave.to_date), "dd MMM, yyyy")}
                           </div>
                         </div>
                         {leave.admin_comment && (

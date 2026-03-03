@@ -54,34 +54,34 @@ export type Database = {
         Row: {
           admin_comment: string | null
           created_at: string
-          start_date: string
+          from_date: string
           id: string
           leave_type: string
           reason: string | null
           status: string
-          end_date: string
+          to_date: string
           user_id: string
         }
         Insert: {
           admin_comment?: string | null
           created_at?: string
-          start_date: string
+          from_date: string
           id?: string
           leave_type: string
           reason?: string | null
           status?: string
-          end_date: string
+          to_date: string
           user_id: string
         }
         Update: {
           admin_comment?: string | null
           created_at?: string
-          start_date?: string
+          from_date?: string
           id?: string
           leave_type?: string
           reason?: string | null
           status?: string
-          end_date?: string
+          to_date?: string
           user_id?: string
         }
         Relationships: []

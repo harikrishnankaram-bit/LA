@@ -44,8 +44,8 @@ const PunchInPage = () => {
       .select("*")
       .eq("user_id", user.id)
       .eq("status", "APPROVED")
-      .lte("start_date", today)
-      .gte("end_date", today);
+      .lte("from_date", today)
+      .gte("to_date", today);
     setHasApprovedLeave((leaves || []).length > 0);
     setLoading(false);
   };

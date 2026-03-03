@@ -30,8 +30,8 @@ const EmployeeDashboard = () => {
       .select("*")
       .eq("user_id", user.id)
       .in("status", ["APPROVED", "CANCEL_REQUESTED"])
-      .lte("start_date", localToday)
-      .gte("end_date", localToday);
+      .lte("from_date", localToday)
+      .gte("to_date", localToday);
 
     setHasApprovedLeave((leaves || []).length > 0);
 
@@ -223,11 +223,11 @@ const EmployeeDashboard = () => {
                       <p className="text-[10px] opacity-80 font-black uppercase tracking-widest mt-1">Approved Leave Active for Today</p>
                     </motion.div>
                   ) : !todayAttendance ? (
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                       <Button onClick={() => handleLogin("WFO")} className="flex-1 h-16 bg-white text-emerald-700 hover:bg-emerald-50 font-black rounded-2xl shadow-xl uppercase tracking-widest" size="lg">
                         <MapPin className="mr-2 h-5 w-5" /> Office
                       </Button>
-                      <Button onClick={() => handleLogin("WFH")} variant="outline" className="flex-1 h-16 bg-white/10 border-white/20 hover:bg-white/20 text-white font-black rounded-2xl sm:block hidden uppercase tracking-widest" size="lg">
+                      <Button onClick={() => handleLogin("WFH")} variant="outline" className="flex-1 h-16 bg-white/10 border-white/20 hover:bg-white/20 text-white font-black rounded-2xl flex items-center justify-center uppercase tracking-widest" size="lg">
                         <Monitor className="mr-2 h-5 w-5" /> Remote
                       </Button>
                     </div>
