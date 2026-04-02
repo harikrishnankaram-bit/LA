@@ -96,7 +96,7 @@ const AttendanceCalendar = () => {
                     .select('*')
                     .eq('user_id', user.id)
                     .eq('status', 'APPROVED')
-                    .or(`start_date.lte.${endDateStr},end_date.gte.${startDateStr}`)
+                    .or(`from_date.lte.${endDateStr},to_date.gte.${startDateStr}`)
             ]);
 
             const attendanceRecords = attendanceRes.data || [];
@@ -105,8 +105,8 @@ const AttendanceCalendar = () => {
 
             const leaveMap = new Map();
             leaveRecords.forEach(l => {
-                const leaveStart = new Date(l.start_date);
-                const leaveEnd = new Date(l.end_date);
+                const leaveStart = new Date(l.from_date);
+                const leaveEnd = new Date(l.to_date);
                 eachDayOfInterval({ start: leaveStart, end: leaveEnd }).forEach(day => {
                     leaveMap.set(format(day, 'yyyy-MM-dd'), l);
                 });
@@ -114,6 +114,11 @@ const AttendanceCalendar = () => {
 
             const calendarEvents = [];
             const daysInMonth = eachDayOfInterval({ start: startMonth, end: endMonth });
+
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const now = new Date();
+            const cutoff = new Date();
+            cutoff.setHours(11, 30, 0, 0);
 
             for (const d of daysInMonth) {
                 const dateKey = format(d, 'yyyy-MM-dd');
@@ -131,22 +136,40 @@ const AttendanceCalendar = () => {
                     });
                 } else if (existingLeave) {
                     calendarEvents.push({
-                        id: `leave-${existingLeave.id}-${dateKey}`,
+                        id: `leave-approved-${existingLeave.id}-${dateKey}`,
                         title: 'LEAVE',
                         start: d,
                         end: d,
                         allDay: true,
                         resource: { status: 'LEAVE', date: dateKey },
                     });
-                } else if (getDay(d) === 0) { // Sunday Detection
-                    calendarEvents.push({
-                        id: `sun-${dateKey}`,
-                        title: 'HOLIDAY',
-                        start: d,
-                        end: d,
-                        allDay: true,
-                        resource: { status: 'HOLIDAY', date: dateKey },
-                    });
+                } else if (dateKey <= todayStr) {
+                    // Logic for missing punches
+                    if (dateKey === todayStr && now < cutoff) {
+                        // Skip today if before cutoff
+                        continue;
+                    }
+
+                    if (getDay(d) === 0) { // Sunday Detection
+                        calendarEvents.push({
+                            id: `sun-${dateKey}`,
+                            title: 'HOLIDAY',
+                            start: d,
+                            end: d,
+                            allDay: true,
+                            resource: { status: 'HOLIDAY', date: dateKey },
+                        });
+                    } else {
+                        // Mark as LEAVE if missing punch
+                        calendarEvents.push({
+                            id: `leave-missing-${dateKey}`,
+                            title: 'LEAVE',
+                            start: d,
+                            end: d,
+                            allDay: true,
+                            resource: { status: 'LEAVE', date: dateKey },
+                        });
+                    }
                 }
             }
 

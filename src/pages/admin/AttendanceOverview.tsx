@@ -12,56 +12,120 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const AttendanceOverview = () => {
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [employeeFilter, setEmployeeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
 
-  const { data: employees = [], isLoading: loadingEmps } = useQuery({
-    queryKey: ["all-employees-list"],
+  const { data: companies = [] } = useQuery({
+    queryKey: ["companies-list"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, department")
-        .eq("role", "employee")
-        .order("full_name");
+        .select("company")
+        .eq("role", "employee");
       if (error) throw error;
-      return data || [];
+      return [...new Set((data || []).map(p => p.company).filter(Boolean))];
     },
   });
 
   const { data: attendance = [], isLoading: loadingAtt, error: attError } = useQuery({
-    queryKey: ["attendance-overview", date, employeeFilter],
+    queryKey: ["attendance-overview", date, statusFilter, companyFilter],
     queryFn: async () => {
-      console.log("Fetching attendance:", { date, filter: employeeFilter });
+      console.log("Fetching attendance:", { date, statusFilter, companyFilter });
 
-      let attQuery = supabase
+      // 1. Fetch relevant profiles (employees)
+      let profQuery = supabase
+        .from("profiles")
+        .select("user_id, full_name, department, company")
+        .eq("role", "employee");
+
+      if (companyFilter !== "all") {
+        profQuery = profQuery.eq("company", companyFilter);
+      }
+      
+      const { data: profData, error: profErr } = await profQuery.order("full_name");
+      if (profErr) throw profErr;
+      if (!profData) return [];
+
+      const userIds = profData.map(p => p.user_id);
+
+      // 2. Fetch attendance for these users on this date
+      const { data: attData, error: attErr } = await supabase
         .from("attendance_daily")
         .select("*")
-        .eq("date", date);
-
-      if (employeeFilter !== "all") {
-        attQuery = attQuery.eq("user_id", employeeFilter);
-      }
-
-      const { data: attData, error: attErr } = await attQuery.order("login_time", { ascending: false });
-      if (attErr) throw attErr;
-      if (!attData || attData.length === 0) return [];
-
-      const userIds = [...new Set(attData.map(a => a.user_id))];
-      const { data: profData, error: profErr } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, department")
+        .eq("date", date)
         .in("user_id", userIds);
 
-      if (profErr) console.warn("Profile sync error:", profErr);
+      if (attErr) throw attErr;
 
-      const profileMap = (profData || []).reduce((acc: any, p) => {
-        acc[p.user_id] = p;
+      // 3. Fetch approved leaves for these users on this date
+      const { data: leaveData, error: leaveErr } = await supabase
+        .from("leaves")
+        .select("user_id, status")
+        .eq("status", "APPROVED")
+        .lte("from_date", date)
+        .gte("to_date", date)
+        .in("user_id", userIds);
+
+      if (leaveErr) console.warn("Leave fetch error:", leaveErr);
+
+      const attendanceMap = (attData || []).reduce((acc: any, a) => {
+        acc[a.user_id] = a;
         return acc;
       }, {});
 
-      return attData.map(a => ({
-        ...a,
-        profiles: profileMap[a.user_id] || { full_name: "Unknown Employee", department: "Unassigned" }
-      }));
+      const leaveMap = (leaveData || []).reduce((acc: any, l) => {
+        acc[l.user_id] = l;
+        return acc;
+      }, {});
+
+      const today = format(new Date(), "yyyy-MM-dd");
+      const isToday = date === today;
+      const now = new Date();
+      const cutOff = new Date();
+      cutOff.setHours(11, 30, 0, 0);
+      const isPastCutoff = now > cutOff;
+
+      // 4. Merge
+      const allRecords = profData.map(p => {
+        const att = attendanceMap[p.user_id];
+        const leave = leaveMap[p.user_id];
+
+        if (att) {
+          return {
+            ...att,
+            profiles: p
+          };
+        }
+
+        // No attendance record found
+        let calculatedStatus = "LEAVE";
+        if (isToday && !isPastCutoff) {
+          calculatedStatus = "NOT PUNCHED";
+        } else if (leave) {
+          calculatedStatus = "LEAVE";
+        }
+
+        return {
+          id: `virtual-${p.user_id}`,
+          user_id: p.user_id,
+          date: date,
+          status: calculatedStatus,
+          login_time: null,
+          logout_time: null,
+          profiles: p,
+          mode: "—"
+        };
+      });
+
+      // 5. Apply Status Filter
+      if (statusFilter === "present") {
+        return allRecords.filter(r => r.status === "PRESENT" || r.status === "LATE");
+      }
+      if (statusFilter === "leave") {
+        return allRecords.filter(r => r.status === "LEAVE");
+      }
+
+      return allRecords;
     },
   });
 
@@ -70,6 +134,8 @@ const AttendanceOverview = () => {
       case "PRESENT": return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
       case "LATE": return "bg-amber-500/10 text-amber-500 border-amber-500/20";
       case "ABSENT": return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "LEAVE": return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+      case "NOT PUNCHED": return "bg-slate-500/10 text-muted-foreground border-border";
       default: return "bg-slate-500/10 text-muted-foreground border-border";
     }
   };
@@ -98,17 +164,33 @@ const AttendanceOverview = () => {
 
         <div className="space-y-2">
           <Label className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70 ml-1 flex items-center gap-2">
-            <Users size={12} /> Employee Filter
+            <Activity size={12} /> Status Filter
           </Label>
-          <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-            <SelectTrigger className="w-64 h-12 bg-background border-border text-foreground font-bold rounded-xl focus:ring-emerald-500/50">
-              <SelectValue placeholder="All Employees" />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-56 h-12 bg-background border-border text-foreground font-bold rounded-xl focus:ring-emerald-500/50">
+              <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border text-popover-foreground">
-              <SelectItem value="all">All Employees</SelectItem>
-              {employees.map((e: any) => (
-                <SelectItem key={e.user_id} value={e.user_id} className="hover:bg-secondary font-bold">
-                  {e.full_name}
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="present">Present Only</SelectItem>
+              <SelectItem value="leave">Leave Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70 ml-1 flex items-center gap-2">
+            <Database size={12} /> Company Filter
+          </Label>
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger className="w-56 h-12 bg-background border-border text-foreground font-bold rounded-xl focus:ring-emerald-500/50">
+              <SelectValue placeholder="All Companies" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border text-popover-foreground">
+              <SelectItem value="all">All Companies</SelectItem>
+              {companies.map((c: string) => (
+                <SelectItem key={c} value={c} className="hover:bg-secondary font-bold font-mono text-[10px] uppercase">
+                  {c}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -196,7 +278,7 @@ const AttendanceOverview = () => {
                         {a.login_time ? format(new Date(a.login_time), "HH:mm:ss") : "— — : — —"}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-info font-bold">
-                        {a.logout_time ? format(new Date(a.logout_time), "HH:mm:ss") : "LOG-OUT PENDING"}
+                        {a.login_time ? (a.logout_time ? format(new Date(a.logout_time), "HH:mm:ss") : "LOG-OUT PENDING") : "— — : — —"}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-blue-500 font-bold">
                         {(() => {

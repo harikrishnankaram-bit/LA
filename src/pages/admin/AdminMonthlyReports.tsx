@@ -37,7 +37,7 @@ const AdminMonthlyReports = () => {
   const filteredEmployees = selectedCompany === "all" ? employees : employees.filter((e: any) => e.company === selectedCompany);
 
   const { data: attendance = [], isLoading } = useQuery({
-    queryKey: ["admin-report", selectedEmployee, selectedCompany, startDate, employees.length],
+    queryKey: ["admin-report", selectedEmployee, selectedCompany, startDate, endDate, employees.length],
     queryFn: async () => {
       if (employees.length === 0) return [];
 
@@ -45,8 +45,7 @@ const AdminMonthlyReports = () => {
         .from("attendance_daily")
         .select("*")
         .gte("date", startDate)
-        .lte("date", endDate)
-        .order("date", { ascending: false });
+        .lte("date", endDate);
 
       if (selectedEmployee !== "all" && selectedEmployee !== "") {
         query = query.eq("user_id", selectedEmployee);
@@ -56,16 +55,58 @@ const AdminMonthlyReports = () => {
         query = query.in("user_id", allowedIds);
       }
 
-      const { data } = await query;
-      return data || [];
+      const { data: attData } = await query;
+      const results = attData || [];
+
+      // If a specific employee is selected, fill in the gaps for the whole month
+      if (selectedEmployee !== "all" && selectedEmployee !== "") {
+        const attMap = results.reduce((acc: any, a) => {
+          acc[a.date] = a;
+          return acc;
+        }, {});
+
+        const todayStr = format(new Date(), "yyyy-MM-dd");
+        const now = new Date();
+        const cutoff = new Date();
+        cutoff.setHours(11, 30, 0, 0);
+
+        const allDays: any[] = [];
+        for (let i = 1; i <= totalDays; i++) {
+          const currentDate = new Date(year, selectedMonth, i);
+          const dateStr = format(currentDate, "yyyy-MM-dd");
+          
+          if (dateStr > todayStr) continue;
+
+          if (attMap[dateStr]) {
+            allDays.push(attMap[dateStr]);
+          } else {
+            let status = "LEAVE";
+            if (dateStr === todayStr && now < cutoff) {
+              status = "NOT PUNCHED";
+            }
+            allDays.push({
+              id: `virtual-${dateStr}`,
+              user_id: selectedEmployee,
+              date: dateStr,
+              status: status,
+              mode: "LEAVE",
+              login_time: null,
+              logout_time: null
+            });
+          }
+        }
+        return allDays.sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      return results.sort((a, b) => b.date.localeCompare(a.date));
     },
     enabled: employees.length > 0,
   });
 
   const presentDays = attendance.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
   const lateDays = attendance.filter((a: any) => a.status === "LATE").length;
-  const absentDays = attendance.filter((a: any) => a.status === "ABSENT" && a.mode !== "LEAVE").length;
-  const leaveDays = attendance.filter((a: any) => a.mode === "LEAVE").length;
+  const leaveDays = attendance.filter((a: any) => a.status === "LEAVE" || a.mode === "LEAVE").length;
+  const absentDays = attendance.filter((a: any) => a.status === "ABSENT").length;
 
   const totalWorked = attendance.reduce((sum: number, a: any) => {
     if (a.login_time && a.logout_time) {
@@ -101,9 +142,10 @@ const AdminMonthlyReports = () => {
   };
 
   const getStatusStyle = (status: string, mode: string) => {
-    if (mode === "LEAVE") return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+    if (status === "LEAVE" || mode === "LEAVE") return "bg-blue-500/10 text-blue-600 border-blue-500/20";
     if (status === "PRESENT") return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
     if (status === "LATE") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+    if (status === "NOT PUNCHED") return "bg-slate-500/10 text-muted-foreground border-slate-500/20";
     return "bg-red-500/10 text-red-600 border-red-500/20";
   };
 

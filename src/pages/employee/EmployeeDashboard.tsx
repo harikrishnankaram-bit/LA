@@ -44,9 +44,10 @@ const EmployeeDashboard = () => {
 
     const latest = latestRecords?.[0];
 
-    if (latest && !latest.logout_time) {
-      setTodayAttendance(latest);
-    } else if (latest && latest.date === localToday) {
+    // Only show active shift if it's from today. 
+    // Records from previous days (even if logout_time is null) should be ignored
+    // as they will be auto-closed by the database on the next punch action.
+    if (latest && latest.date === localToday) {
       setTodayAttendance(latest);
     } else {
       setTodayAttendance(null);
@@ -54,27 +55,52 @@ const EmployeeDashboard = () => {
 
     const { data: weekData } = await supabase
       .from("attendance_daily")
-      .select("status, mode")
+      .select("date, status, mode")
       .eq("user_id", user.id)
       .gte("date", start)
       .lte("date", end);
 
     if (weekData) {
-      const stats = { Present: 0, Late: 0, Absent: 0, WFH: 0, WFO: 0 };
+      const stats = { Present: 0, Late: 0, Leave: 0, WFH: 0, WFO: 0 };
+      
+      // Calculate how many days have passed in the current week range
+      // or just assume 5 working days? Let's keep it simple and just count missing days up to today.
+      const attendedDates = new Set((weekData || []).map(d => d.date));
+      const todayString = format(new Date(), "yyyy-MM-dd");
+      
       weekData.forEach((record: any) => {
         if (record.status === "PRESENT") stats.Present++;
         else if (record.status === "LATE") stats.Late++;
-        else if (record.status === "ABSENT") stats.Absent++;
+        else if (record.status === "ABSENT" || record.status === "LEAVE") stats.Leave++;
+        
         if (record.mode === "WFH") stats.WFH++;
         else if (record.mode === "WFO") stats.WFO++;
       });
 
+      // Add missing days as Leave (from start of week to today)
+      let currentDate = new Date(start);
+      const now = new Date();
+      const todayCutoff = new Date();
+      todayCutoff.setHours(11, 30, 0, 0);
+
+      while (currentDate <= now) {
+        const dateStr = format(currentDate, "yyyy-MM-dd");
+        const isCurrentIterationToday = dateStr === todayString;
+        
+        if (!attendedDates.has(dateStr)) {
+          if (!isCurrentIterationToday || now > todayCutoff) {
+            stats.Leave++;
+          }
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
       setWeeklyData([
         { name: "Present", value: stats.Present, color: "#10b981" },
         { name: "Late", value: stats.Late, color: "#f59e0b" },
-        { name: "Absent", value: stats.Absent, color: "#ef4444" },
-        { name: "WFH", value: stats.WFH, color: "#3b82f6" },
-        { name: "WFO", value: stats.WFO, color: "#8b5cf6" },
+        { name: "Leave", value: stats.Leave, color: "#3b82f6" },
+        { name: "WFH", value: stats.WFH, color: "#8b5cf6" },
+        { name: "WFO", value: stats.WFO, color: "#6366f1" },
       ].filter(d => d.value > 0));
     }
 
@@ -190,7 +216,12 @@ const EmployeeDashboard = () => {
               <div>
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Live Status</p>
                 <h3 className="text-xl font-black font-display truncate text-foreground italic uppercase tracking-tighter">
-                  {hasApprovedLeave ? "ON LEAVE" : todayAttendance ? todayAttendance.status : "Ready"}
+                  {hasApprovedLeave ? "ON LEAVE" : todayAttendance ? todayAttendance.status : (() => {
+                    const now = new Date();
+                    const cutoff = new Date();
+                    cutoff.setHours(11, 30, 0, 0);
+                    return now > cutoff ? "LEAVE" : "AWAITING PUNCH";
+                  })()}
                 </h3>
               </div>
             </CardContent>
@@ -224,11 +255,11 @@ const EmployeeDashboard = () => {
                     </motion.div>
                   ) : !todayAttendance ? (
                     <div className="flex flex-col sm:flex-row gap-4">
-                      <Button onClick={() => handleLogin("WFO")} className="flex-1 h-16 bg-white text-emerald-700 hover:bg-emerald-50 font-black rounded-2xl shadow-xl uppercase tracking-widest" size="lg">
-                        <MapPin className="mr-2 h-5 w-5" /> Office
+                      <Button onClick={() => handleLogin("WFO")} className="flex-1 h-24 bg-white text-emerald-700 hover:bg-emerald-50 font-black rounded-2xl shadow-xl uppercase tracking-widest text-lg" size="lg">
+                        <MapPin className="mr-3 h-6 w-6" /> Office
                       </Button>
-                      <Button onClick={() => handleLogin("WFH")} variant="outline" className="flex-1 h-16 bg-white/10 border-white/20 hover:bg-white/20 text-white font-black rounded-2xl flex items-center justify-center uppercase tracking-widest" size="lg">
-                        <Monitor className="mr-2 h-5 w-5" /> Remote
+                      <Button onClick={() => handleLogin("WFH")} variant="outline" className="flex-1 h-24 bg-white/10 border-white/20 hover:bg-white/20 text-white font-black rounded-2xl flex items-center justify-center uppercase tracking-widest text-lg" size="lg">
+                        <Monitor className="mr-3 h-6 w-6" /> Remote
                       </Button>
                     </div>
                   ) : !todayAttendance.logout_time ? (
@@ -343,6 +374,14 @@ const EmployeeDashboard = () => {
                 <div>
                   <span className="text-[10px] font-black text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-widest">REMOTE DAYS</span>
                   <p className="text-5xl font-black font-display text-blue-500 italic tracking-tighter">{weeklyData.find(d => d.name === 'WFH')?.value || 0}</p>
+                </div>
+                <div className="h-12 w-px bg-border/50" />
+              </div>
+
+              <div className="flex justify-between items-end group">
+                <div>
+                  <span className="text-[10px] font-black text-muted-foreground group-hover:text-orange-500 transition-colors uppercase tracking-widest">LEAVE DAYS</span>
+                  <p className="text-5xl font-black font-display text-orange-500 italic tracking-tighter">{weeklyData.find(d => d.name === 'Leave')?.value || 0}</p>
                 </div>
               </div>
 

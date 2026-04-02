@@ -29,22 +29,75 @@ const EmployeeMonthlyReport = () => {
   const { data: attendanceData = [], isLoading } = useQuery({
     queryKey: ["my-monthly-report", user?.id, startDate, endDate],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: attData } = await supabase
         .from("attendance_daily")
         .select("*")
         .eq("user_id", user!.id)
         .gte("date", startDate)
-        .lte("date", endDate)
-        .order("date");
-      return data || [];
+        .lte("date", endDate);
+
+      const { data: leaveData } = await supabase
+        .from("leaves")
+        .select("from_date, to_date, status")
+        .eq("user_id", user!.id)
+        .eq("status", "APPROVED")
+        .lte("from_date", endDate)
+        .gte("to_date", startDate);
+
+      const attMap = (attData || []).reduce((acc: any, a) => {
+        acc[a.date] = a;
+        return acc;
+      }, {});
+
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      const now = new Date();
+      const cutoff = new Date();
+      cutoff.setHours(11, 30, 0, 0);
+
+      const allDays: any[] = [];
+      const daysCount = getDaysInMonth(new Date(selectedYear, selectedMonth));
+      
+      for (let i = 1; i <= daysCount; i++) {
+        const currentDate = new Date(selectedYear, selectedMonth, i);
+        const dateStr = format(currentDate, "yyyy-MM-dd");
+        
+        // Skip future dates
+        if (dateStr > todayStr) continue;
+
+        if (attMap[dateStr]) {
+          allDays.push(attMap[dateStr]);
+        } else {
+          // Check if it's an approved leave
+          const isApprovedLeave = (leaveData || []).some(l => 
+            dateStr >= l.from_date && dateStr <= l.to_date
+          );
+
+          let status = "LEAVE";
+          if (dateStr === todayStr && now < cutoff) {
+            status = "NOT PUNCHED";
+          }
+
+          allDays.push({
+            id: `virtual-${dateStr}`,
+            date: dateStr,
+            status: status,
+            mode: isApprovedLeave ? "LEAVE" : "LEAVE", // As per user request: "if not present make that day as leave"
+            login_time: null,
+            logout_time: null
+          });
+        }
+      }
+
+      return allDays.sort((a, b) => b.date.localeCompare(a.date));
     },
     enabled: !!user,
   });
 
   const presentDays = attendanceData.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
   const lateDays = attendanceData.filter((a: any) => a.status === "LATE").length;
-  const leaveDays = attendanceData.filter((a: any) => a.mode === "LEAVE").length;
-  const absentDays = attendanceData.filter((a: any) => a.status === "ABSENT" && a.mode !== "LEAVE").length;
+  const leaveDays = attendanceData.filter((a: any) => a.status === "LEAVE").length;
+  // Absent is effectively 0 now as they are all Leave
+  const absentDays = attendanceData.filter((a: any) => a.status === "ABSENT").length;
 
   const totalWorked = attendanceData.reduce((sum: number, a: any) => {
     if (a.login_time && a.logout_time) {
@@ -56,9 +109,10 @@ const EmployeeMonthlyReport = () => {
   }, 0);
 
   const getStatusStyle = (status: string, mode: string) => {
-    if (mode === "LEAVE") return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+    if (status === "LEAVE" || mode === "LEAVE") return "bg-blue-500/10 text-blue-600 border-blue-500/20";
     if (status === "PRESENT") return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
     if (status === "LATE") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+    if (status === "NOT PUNCHED") return "bg-slate-500/10 text-muted-foreground border-slate-500/20";
     return "bg-red-500/10 text-red-600 border-red-500/20";
   };
 
